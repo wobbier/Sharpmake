@@ -2278,6 +2278,8 @@ namespace Sharpmake
             public string PackageCertificateKeyFile = string.Empty;
             public string PackageCertificateThumbprint = string.Empty;
 
+            public Strings Images = new Strings();
+
             public Strings PRIFilesExtensions = new Strings();
 
             /// <summary>

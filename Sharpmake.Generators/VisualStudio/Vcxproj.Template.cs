@@ -75,6 +75,10 @@ namespace Sharpmake.Generators.VisualStudio
     <None Include=""[certificateFileName]"" />
   </ItemGroup>";
 
+                public static string UWPImages =
+@"      <Image Include=""[filePath]"" />";
+
+
                 public const string DisableRegistryUse =
 @"    <DisableRegistryUse>true</DisableRegistryUse>
 ";

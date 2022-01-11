@@ -425,6 +425,20 @@ namespace Sharpmake.Generators.VisualStudio
                         fileGenerator.Write(Template.Project.UWPCertificate);
                     }
                 }
+
+                if(firstConf.Images.Count > 0)
+                {
+
+                fileGenerator.Write(Template.Project.ItemGroupBegin);
+                    foreach (string image in firstConf.Images)
+                    {
+                        using (fileGenerator.Declare("filePath", image))
+                        {
+                            fileGenerator.Write(Template.Project.UWPImages);
+                        }
+                    }
+                    fileGenerator.Write(Template.Project.ItemGroupEnd);
+                }
             }
 
             using (fileGenerator.Declare("projectName", firstConf.ProjectName))
