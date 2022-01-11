@@ -402,6 +402,31 @@ namespace Sharpmake.Generators.VisualStudio
                 targetFrameworkString = Util.GetDotNetTargetString(firstConf.Target.GetFragment<DotNetFramework>());
             }
 
+            if (firstConf.IsUniversalWindowsPlatform)
+            {
+                using (fileGenerator.Declare("appxPackageSigningEnabled", "true"))
+                using (fileGenerator.Declare("applicationType", "Windows Store"))
+                {
+                    fileGenerator.Write(Template.Project.UWPProjectDescription);
+                }
+
+                fileGenerator.Write(Template.Project.PropertyGroupEnd);
+
+                using (fileGenerator.Declare("filePath", firstConf.AppxManifestFilePath))
+                {
+                    fileGenerator.Write(Template.Project.UWPAppxmanifest);
+                }
+
+                if(!string.IsNullOrEmpty(firstConf.PackageCertificateKeyFile))
+                {
+                    using (fileGenerator.Declare("certificateThumb", firstConf.PackageCertificateThumbprint))
+                    using (fileGenerator.Declare("certificateFileName", firstConf.PackageCertificateKeyFile))
+                    {
+                        fileGenerator.Write(Template.Project.UWPCertificate);
+                    }
+                }
+            }
+
             using (fileGenerator.Declare("projectName", firstConf.ProjectName))
             using (fileGenerator.Declare("guid", firstConf.ProjectGuid))
             using (fileGenerator.Declare("sccProjectName", sccProjectName))

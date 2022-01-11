@@ -2274,6 +2274,10 @@ namespace Sharpmake
             public bool NeedsAppxManifestFile = false;
             public string AppxManifestFilePath = "[conf.TargetPath]/[project.Name].appxmanifest";
 
+            public bool IsUniversalWindowsPlatform = false;
+            public string PackageCertificateKeyFile = string.Empty;
+            public string PackageCertificateThumbprint = string.Empty;
+
             public Strings PRIFilesExtensions = new Strings();
 
             /// <summary>

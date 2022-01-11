@@ -52,6 +52,29 @@ namespace Sharpmake.Generators.VisualStudio
     <ProjectName>[projectName]</ProjectName>
 ";
 
+                public static string UWPProjectDescription =
+@"  <PropertyGroup Label=""Globals"">
+    <AppContainerApplication>true</AppContainerApplication>
+    <ApplicationType>[applicationType]</ApplicationType>
+    <WindowsTargetPlatformVersion>10.0.19041.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformMinVersion>10.0.17763.0</WindowsTargetPlatformMinVersion>
+    <ApplicationTypeRevision>10.0</ApplicationTypeRevision>
+    <AppxPackageSigningEnabled>[appxPackageSigningEnabled]</AppxPackageSigningEnabled>
+";
+                public static string UWPAppxmanifest =
+@"  <ItemGroup>
+        <AppxManifest Include=""[filePath]"" />
+    </ItemGroup>";
+
+                public static string UWPCertificate =
+@"  <PropertyGroup Label=""UserMacros"">
+    <PackageCertificateThumbprint>[certificateThumb]</PackageCertificateThumbprint>
+    <PackageCertificateKeyFile>[certificateFileName]</PackageCertificateKeyFile>
+    </PropertyGroup>
+  <ItemGroup>
+    <None Include=""[certificateFileName]"" />
+  </ItemGroup>";
+
                 public const string DisableRegistryUse =
 @"    <DisableRegistryUse>true</DisableRegistryUse>
 ";
