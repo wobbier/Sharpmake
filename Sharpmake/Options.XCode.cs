@@ -1,16 +1,5 @@
-﻿// Copyright (c) 2017, 2020-2021 Ubisoft Entertainment
-// 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-// 
-//     http://www.apache.org/licenses/LICENSE-2.0
-// 
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Copyright (c) Ubisoft. All Rights Reserved.
+// Licensed under the Apache 2.0 License. See LICENSE.md in the project root for license information.
 
 using System;
 using System.Linq;
@@ -114,10 +103,12 @@ namespace Sharpmake
                     CPP11,
                     CPP14,
                     CPP17,
+                    CPP20,
                     GNU98,
                     GNU11,
                     GNU14,
-                    GNU17
+                    GNU17,
+                    GNU20
                 }
 
                 public enum DeadStrip
@@ -261,11 +252,22 @@ namespace Sharpmake
                     }
                 }
 
-                public enum LibraryStandard
+                public class TvOSDeploymentTarget
                 {
-                    CppStandard,
-                    [Default]
-                    LibCxx
+                    public string MinimumVersion;
+                    public TvOSDeploymentTarget(string minimumVersion)
+                    {
+                        MinimumVersion = minimumVersion;
+                    }
+                }
+
+                public class WatchOSDeploymentTarget
+                {
+                    public string MinimumVersion;
+                    public WatchOSDeploymentTarget(string minimumVersion)
+                    {
+                        MinimumVersion = minimumVersion;
+                    }
                 }
 
                 public class MacOSDeploymentTarget
@@ -275,6 +277,13 @@ namespace Sharpmake
                     {
                         MinimumVersion = minimumVersion;
                     }
+                }
+
+                public enum LibraryStandard
+                {
+                    CppStandard,
+                    [Default]
+                    LibCxx
                 }
 
                 public enum ModelTuning
@@ -384,8 +393,11 @@ namespace Sharpmake
                     [Default]
                     Ios = 1 << 0,
                     Ipad = 1 << 1,
+                    Tvos = 1 << 2,
+                    Watchos = 1 << 3,
 
-                    IosAndIpad = Ios | Ipad
+                    IosAndIpad = Ios | Ipad,
+                    MacCatalyst = Ipad,
                 }
 
                 public class AssetCatalogCompilerAppIconName : StringOption
@@ -610,6 +622,29 @@ namespace Sharpmake
                     Disable,
                     [Default]
                     Enable
+                }
+
+                /// <summary>
+                /// Xcode has a setting called Single-Object Prelink, which allows libraries and frameworks to include the necessary symbols 
+                /// from other libraries so that the underlying libraries do not need to be linked against in an application using your framework.
+                /// </summary>
+                public enum PerformSingleObjectPrelink
+                {
+                    [Default]
+                    Disable,
+                    Enable
+                }
+
+                /// <summary>
+                /// List of libraries that need to be included into Single-Object Prelink process.
+                /// Use space separator to include multiple libraries.
+                /// </summary>
+                public class PrelinkLibraries : PathOption
+                {
+                    public PrelinkLibraries(string path)
+                       : base(path)
+                    {
+                    }
                 }
             }
         }

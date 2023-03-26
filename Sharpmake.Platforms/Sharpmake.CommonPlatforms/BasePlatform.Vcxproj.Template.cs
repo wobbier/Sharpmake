@@ -1,16 +1,6 @@
-﻿// Copyright (c) 2017-2022 Ubisoft Entertainment
-// 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-// 
-//     http://www.apache.org/licenses/LICENSE-2.0
-// 
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+﻿// Copyright (c) Ubisoft. All Rights Reserved.
+// Licensed under the Apache 2.0 License. See LICENSE.md in the project root for license information.
+
 namespace Sharpmake
 {
     public abstract partial class BasePlatform
@@ -28,7 +18,7 @@ namespace Sharpmake
       <AdditionalIncludeDirectories>[options.AdditionalIncludeDirectories]</AdditionalIncludeDirectories>
       <AdditionalUsingDirectories>[options.AdditionalUsingDirectories]</AdditionalUsingDirectories>
       <DebugInformationFormat>[options.DebugInformationFormat]</DebugInformationFormat>
-      <CompileAsManaged>[clrSupport]</CompileAsManaged>
+      <CompileAsManaged>[compileAsManaged]</CompileAsManaged>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <TreatWarningAsError>[options.TreatWarningAsError]</TreatWarningAsError>
       <DiagnosticsFormat>[options.DiagnosticsFormat]</DiagnosticsFormat>
@@ -75,7 +65,7 @@ namespace Sharpmake
       <CompileAs>Default</CompileAs>
       <DisableSpecificWarnings>[options.DisableSpecificWarnings]</DisableSpecificWarnings>
       <UndefinePreprocessorDefinitions>[options.UndefinePreprocessorDefinitions]</UndefinePreprocessorDefinitions>
-      <AdditionalOptions>[options.AdditionalCompilerOptions]</AdditionalOptions>
+      <AdditionalOptions>[options.AllAdditionalCompilerOptions]</AdditionalOptions>
       <PrecompiledHeaderFile>[options.PrecompiledHeaderThrough]</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>[options.PrecompiledHeaderFile]</PrecompiledHeaderOutputFile>
       <ProgramDatabaseFileName>[options.CompilerProgramDatabaseFile]</ProgramDatabaseFileName>
@@ -170,6 +160,7 @@ namespace Sharpmake
     <LocalDebuggerCommandArguments>[conf.VcxprojUserFile.LocalDebuggerCommandArguments]</LocalDebuggerCommandArguments>
     <LocalDebuggerEnvironment>[conf.VcxprojUserFile.LocalDebuggerEnvironment]</LocalDebuggerEnvironment>
     <LocalDebuggerWorkingDirectory>[conf.VcxprojUserFile.LocalDebuggerWorkingDirectory]</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerAttach>[conf.VcxprojUserFile.LocalDebuggerAttachString]</LocalDebuggerAttach>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
 ";
 
@@ -265,20 +256,21 @@ namespace Sharpmake
     <NMakeReBuildCommandLine>cd [relativeMasterBffPath]
 [conf.FastBuildCustomActionsBeforeBuildCommand]
 [fastBuildMakeCommandRebuild] </NMakeReBuildCommandLine>
-    <NMakeCleanCommandLine>del ""[options.IntermediateDirectory]\*unity*.cpp"" >NUL 2>NUL
-del ""[options.IntermediateDirectory]\*.obj"" >NUL 2>NUL
-del ""[options.IntermediateDirectory]\*.a"" >NUL 2>NUL
-del ""[options.IntermediateDirectory]\*.lib"" >NUL 2>NUL
-del ""[options.OutputDirectory]\[conf.TargetFileFullName].exe"" >NUL 2>NUL
-del ""[options.OutputDirectory]\[conf.TargetFileFullName].elf"" >NUL 2>NUL
-del ""[options.OutputDirectory]\[conf.TargetFileFullName].exp"" >NUL 2>NUL
-del ""[options.OutputDirectory]\[conf.TargetFileFullName].ilk"" >NUL 2>NUL
-del ""[options.OutputDirectory]\[conf.TargetFileFullName].lib"" >NUL 2>NUL
-del ""[options.OutputDirectory]\[conf.TargetFileFullName].pdb"" >NUL 2>NUL</NMakeCleanCommandLine>
+    <NMakeCleanCommandLine>del ""[options.IntermediateDirectory]\*unity*.cpp"" &gt;NUL 2&gt;NUL
+del ""[options.IntermediateDirectory]\*.obj"" &gt;NUL 2&gt;NUL
+del ""[options.IntermediateDirectory]\*.a"" &gt;NUL 2&gt;NUL
+del ""[options.IntermediateDirectory]\*.lib"" &gt;NUL 2&gt;NUL
+del ""[options.OutputDirectory]\[conf.TargetFileFullName].exe"" &gt;NUL 2&gt;NUL
+del ""[options.OutputDirectory]\[conf.TargetFileFullName].elf"" &gt;NUL 2&gt;NUL
+del ""[options.OutputDirectory]\[conf.TargetFileFullName].exp"" &gt;NUL 2&gt;NUL
+del ""[options.OutputDirectory]\[conf.TargetFileFullName].ilk"" &gt;NUL 2&gt;NUL
+del ""[options.OutputDirectory]\[conf.TargetFileFullName].lib"" &gt;NUL 2&gt;NUL
+del ""[options.OutputDirectory]\[conf.TargetFileFullName].pdb"" &gt;NUL 2&gt;NUL</NMakeCleanCommandLine>
     <NMakeOutput>[options.OutputFile]</NMakeOutput>
     <NMakePreprocessorDefinitions>[options.PreprocessorDefinitions]</NMakePreprocessorDefinitions>
     <NMakeIncludeSearchPath>[options.AdditionalIncludeDirectories]</NMakeIncludeSearchPath>
     <NMakeForcedIncludes>[options.ForcedIncludeFiles]</NMakeForcedIncludes>
+    <AdditionalOptions>[options.AdditionalOptions]</AdditionalOptions>
   </PropertyGroup>
 ";
 
@@ -293,6 +285,7 @@ del ""[options.OutputDirectory]\[conf.TargetFileFullName].pdb"" >NUL 2>NUL</NMak
     <NMakePreprocessorDefinitions>[options.PreprocessorDefinitions]</NMakePreprocessorDefinitions>
     <NMakeIncludeSearchPath>[options.AdditionalIncludeDirectories]</NMakeIncludeSearchPath>
     <NMakeForcedIncludes>[options.ForcedIncludeFiles]</NMakeForcedIncludes>
+    <AdditionalOptions>[options.AdditionalOptions]</AdditionalOptions>
   </PropertyGroup>
 ";
     }

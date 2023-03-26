@@ -1,16 +1,6 @@
-// Copyright (c) 2017-2021 Ubisoft Entertainment
-// 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-// 
-//     http://www.apache.org/licenses/LICENSE-2.0
-// 
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Copyright (c) Ubisoft. All Rights Reserved.
+// Licensed under the Apache 2.0 License. See LICENSE.md in the project root for license information.
+
 using System;
 using System.Collections;
 using System.Collections.Concurrent;
@@ -82,12 +72,8 @@ namespace Sharpmake
             set { SetProperty(ref _sourceRootPath, value); }
         }
 
-        private string _perforceRootPath = null;
-        public string PerforceRootPath
-        {
-            get { return _perforceRootPath; }
-            set { SetProperty(ref _perforceRootPath, value); }
-        }
+        [Obsolete("This property is deprecated, scc info shouldn't be stored in the project files anymore", error: true)]
+        public string PerforceRootPath;
 
         private string _rootPath = "";                                                    // RootPath used as key to generate ProjectGuid and as a path helper for finding source files
         public string RootPath
@@ -170,6 +156,10 @@ namespace Sharpmake
 
         public Strings NoneFilesCopyIfNewer = new Strings();
         public Strings NoneExtensionsCopyIfNewer = new Strings();
+
+        // .Net builds support protofiles, https://docs.microsoft.com/en-us/aspnet/core/grpc/dotnet-grpc?view=aspnetcore-5.0
+        public Strings ProtoFiles = new Strings();
+        public Strings ProtoExtensions = new Strings();
 
         public Strings XResourcesResw = new Strings();
 
@@ -902,6 +892,7 @@ namespace Sharpmake
                     AddMatchExtensionFiles(additionalFiles, ref NatvisFiles, NatvisFilesExtensions);
                     AddMatchExtensionFiles(additionalFiles, ref NoneFiles, NoneExtensions);
                     AddMatchExtensionFiles(additionalFiles, ref NoneFilesCopyIfNewer, NoneExtensionsCopyIfNewer);
+                    AddMatchExtensionFiles(additionalFiles, ref ProtoFiles, ProtoExtensions);
                 }
 
                 // Apply Filters 
@@ -935,6 +926,9 @@ namespace Sharpmake
 
                 AddMatchExtensionFiles(files, ref NoneFilesCopyIfNewer, NoneExtensionsCopyIfNewer);
                 Util.ResolvePath(SourceRootPath, ref NoneFilesCopyIfNewer);
+
+                AddMatchExtensionFiles(files, ref ProtoFiles, ProtoExtensions);
+                Util.ResolvePath(SourceRootPath, ref ProtoFiles);
             }
 
             _preFilterSourceFiles.AddRange(SourceFiles);
@@ -960,6 +954,7 @@ namespace Sharpmake
                 NatvisFiles.IntersectWith(SourceFilesFilters);
                 NoneFiles.IntersectWith(SourceFilesFilters);
                 NoneFilesCopyIfNewer.IntersectWith(SourceFilesFilters);
+                ProtoFiles.IntersectWith(SourceFilesFilters);
             }
 
             using (builder.CreateProfilingScope("Project.ResolveSourceFiles:AdditionalFiltering"))
@@ -980,6 +975,8 @@ namespace Sharpmake
                 Debugger.Break();
             if (AddMatchFiles(RootPath, Util.PathGetRelative(RootPath, NoneFiles), NoneFiles, ref SourceFilesExclude, sourceFilesExcludeRegex))
                 Debugger.Break();
+            if (AddMatchFiles(RootPath, Util.PathGetRelative(RootPath, ProtoFiles), ProtoFiles, ref SourceFilesExclude, sourceFilesExcludeRegex))
+                Debugger.Break();
 
             // Remove exclude file
             foreach (string excludeSourceFile in SourceFilesExclude)
@@ -988,6 +985,7 @@ namespace Sharpmake
                 ResourceFiles.Remove(excludeSourceFile);
                 NatvisFiles.Remove(excludeSourceFile);
                 NoneFiles.Remove(excludeSourceFile);
+                ProtoFiles.Remove(excludeSourceFile);
             }
             var resolvedSourceFilesRelative = Util.PathGetRelative(RootPath, ResolvedSourceFiles);
 
@@ -1604,13 +1602,14 @@ namespace Sharpmake
             if (target.GetType() != Targets.TargetType)
                 return null;
 
-            foreach (Project.Configuration conf in Configurations)
+            Configuration config;
+            bool hasConfig = ConfigurationsCache.TryGetValue(target, out config);
+            if (!hasConfig)
             {
-                ITarget confTarget = conf.Target;
-                if (target.IsEqualTo(confTarget))
-                    return conf;
+                ReportError($"ConfigurationsCache in project '{Name}' does not contain configuration for '{target}'");
             }
-            return null;
+
+            return config;
         }
 
         internal void Initialize(Type targetType, Type configurationType, bool isInternal = false)
@@ -1698,6 +1697,18 @@ namespace Sharpmake
             // below checks are very very very costly, may take up to about 20 sec for huge codebase.
             if (Builder.Instance.Diagnostics && Util.CountFakeFiles() == 0)
             {
+                // Cache the following File/Directory.Exists, avoiding redundant call for files in multiple configs
+                var pathExistsCache = new Dictionary<string, bool>(256);
+                bool PathExists(string path, Func<string, bool> checker)
+                {
+                    bool result;
+                    if (!pathExistsCache.TryGetValue(path, out result))
+                        pathExistsCache.Add(path, result = checker(path));
+                    return result;
+                }
+                bool FileExists(string path) => PathExists(path, File.Exists);
+                bool DirectoryExists(string path) => PathExists(path, Directory.Exists);
+
                 foreach (Configuration conf in Configurations)
                 {
                     var includePathsExcludeFromWarningRegex = RegexCache.GetCachedRegexes(IncludePathsExcludeFromWarningRegex).ToArray();
@@ -1714,7 +1725,7 @@ namespace Sharpmake
                     {
                         foreach (string file in array.Key)
                         {
-                            if (!File.Exists(file))
+                            if (!FileExists(file))
                             {
                                 ReportError($@"{conf.Project.SharpmakeCsFileName}: Error: File contained in {array.Value} doesn't exist: {file}.");
                             }
@@ -1731,7 +1742,7 @@ namespace Sharpmake
                     {
                         foreach (string file in array.Key)
                         {
-                            if (!File.Exists(file))
+                            if (!FileExists(file))
                             {
                                 ReportError($@"{conf.Project.SharpmakeCsFileName}: Warning: File contained in {array.Value} doesn't exist: {file}.", onlyWarn: true);
                             }
@@ -1744,7 +1755,7 @@ namespace Sharpmake
                     {
                         foreach (string folder in includeArray)
                         {
-                            if (!folder.StartsWith("$", StringComparison.Ordinal) && !includePathsExcludeFromWarningRegex.Any(regex => regex.Match(folder).Success) && !Directory.Exists(folder))
+                            if (!folder.StartsWith("$", StringComparison.Ordinal) && !includePathsExcludeFromWarningRegex.Any(regex => regex.Match(folder).Success) && !DirectoryExists(folder))
                             {
                                 ReportError($@"{conf.Project.SharpmakeCsFileName}: Warning: Folder contained in include paths doesn't exist: {folder}.", true);
                             }
@@ -1767,7 +1778,7 @@ namespace Sharpmake
                     string platformLibExtension = configTasks.GetDefaultOutputFullExtension(Configuration.OutputType.Lib);
                     foreach (string folder in allLibraryPaths)
                     {
-                        if (!folder.StartsWith("$", StringComparison.Ordinal) && !libraryPathsExcludeFromWarningRegex.Any(regex => regex.Match(folder).Success) && !Directory.Exists(folder))
+                        if (!folder.StartsWith("$", StringComparison.Ordinal) && !libraryPathsExcludeFromWarningRegex.Any(regex => regex.Match(folder).Success) && !DirectoryExists(folder))
                         {
                             ReportError($@"{conf.Project.SharpmakeCsFileName}: Warning: Folder contained in conf.LibraryPaths doesn't exist. Folder: {folder}.", true);
                         }
@@ -1778,7 +1789,7 @@ namespace Sharpmake
                             foreach (string file in allLibraryFiles)
                             {
                                 string path = Path.Combine(folder, file);
-                                if (File.Exists(path) || File.Exists(path + platformLibExtension) || File.Exists(Path.Combine(folder, platformLibPrefix + file + platformLibExtension)))
+                                if (FileExists(path) || FileExists(path + platformLibExtension) || FileExists(Path.Combine(folder, platformLibPrefix + file + platformLibExtension)))
                                     toRemove.Add(file);
                             }
 
@@ -1787,7 +1798,7 @@ namespace Sharpmake
                     }
 
                     // Add all rooted files that are missing
-                    allLibraryFiles.Add(allRootedFiles.Where(file => !File.Exists(file)).ToArray());
+                    allLibraryFiles.Add(allRootedFiles.Where(file => !FileExists(file)).ToArray());
 
                     // everything that remains is a missing library file
                     foreach (string file in allLibraryFiles)
@@ -1826,9 +1837,6 @@ namespace Sharpmake
                 Util.ResolvePath(SourceRootPath, ref SourceFilesBlobExclude);
                 Util.ResolvePath(SourceRootPath, ref SourceFilesBuildExclude);
                 Util.ResolvePath(SharpmakeCsPath, ref _blobPath);
-
-                if (PerforceRootPath != null)
-                    Util.ResolvePath(SharpmakeCsPath, ref _perforceRootPath);
 
                 if (SourceFilesFilters != null)
                     Util.ResolvePath(SharpmakeCsPath, ref SourceFilesFilters);
@@ -2309,6 +2317,7 @@ namespace Sharpmake
         /// Enable or disable the property [EnableDefaultItems] in NetCore Project Schema
         /// </summary>
         public bool EnableDefaultItems { get; set; } = false;
+        public Strings DefaultItemExcludes = new Strings();
 
         public bool IncludeResxAsResources = true;
         public string RootNamespace;
@@ -2414,6 +2423,8 @@ namespace Sharpmake
                 ".disco",
                 ".manifest"
             );
+
+            ProtoExtensions.Add(".proto");
         }
 
         public CSharpProject()

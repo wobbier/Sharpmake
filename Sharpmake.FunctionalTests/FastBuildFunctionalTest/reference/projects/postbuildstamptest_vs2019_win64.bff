@@ -84,7 +84,7 @@ Executable( 'PostBuildStampTest_Debug_FastBuild_NoBlob_vs2019_win64_Executable' 
     .LinkerOutput           = '.\$_CURRENT_BFF_DIR_$\output\debug_fastbuild_noblob_vs2019\postbuildstamptest.exe'
     .LinkerLinkObjects      = false
     .LinkerStampExe         = '.\$_CURRENT_BFF_DIR_$\output\Debug_FastBuild_NoBlob_vs2019\PostBuildStamper.exe'
-    .LinkerStampExeArgs     = ' e:\gitlab\anvil.sharpmake.packageci\sharpmake\sharpmake.functionaltests\fastbuildfunctionaltest\projects\output\Debug_FastBuild_NoBlob_vs2019\PostBuildStampTest.exe _Stamp_Message'
+    .LinkerStampExeArgs     = ' e:\rd\sharpmakes\sharpmake.packageci\sharpmake\sharpmake.functionaltests\fastbuildfunctionaltest\projects\output\Debug_FastBuild_NoBlob_vs2019\PostBuildStampTest.exe _Stamp_Message'
 
     .LinkerOptions          = '/OUT:"%2"'
                             // Input files
@@ -227,7 +227,7 @@ Executable( 'PostBuildStampTest_Release_FastBuild_NoBlob_vs2019_win64_Executable
     .LinkerOutput           = '.\$_CURRENT_BFF_DIR_$\output\release_fastbuild_noblob_vs2019\postbuildstamptest.exe'
     .LinkerLinkObjects      = false
     .LinkerStampExe         = '.\$_CURRENT_BFF_DIR_$\output\Release_FastBuild_NoBlob_vs2019\PostBuildStamper.exe'
-    .LinkerStampExeArgs     = ' e:\gitlab\anvil.sharpmake.packageci\sharpmake\sharpmake.functionaltests\fastbuildfunctionaltest\projects\output\Release_FastBuild_NoBlob_vs2019\PostBuildStampTest.exe _Stamp_Message'
+    .LinkerStampExeArgs     = ' e:\rd\sharpmakes\sharpmake.packageci\sharpmake\sharpmake.functionaltests\fastbuildfunctionaltest\projects\output\Release_FastBuild_NoBlob_vs2019\PostBuildStampTest.exe _Stamp_Message'
 
     .LinkerOptions          = '/OUT:"%2"'
                             // Input files
@@ -369,7 +369,7 @@ Executable( 'PostBuildStampTest_Debug_FastBuild_vs2019_win64_Executable' )
     .LinkerOutput           = '.\$_CURRENT_BFF_DIR_$\output\debug_fastbuild_vs2019\postbuildstamptest.exe'
     .LinkerLinkObjects      = false
     .LinkerStampExe         = '.\$_CURRENT_BFF_DIR_$\output\Debug_FastBuild_vs2019\PostBuildStamper.exe'
-    .LinkerStampExeArgs     = ' e:\gitlab\anvil.sharpmake.packageci\sharpmake\sharpmake.functionaltests\fastbuildfunctionaltest\projects\output\Debug_FastBuild_vs2019\PostBuildStampTest.exe _Stamp_Message'
+    .LinkerStampExeArgs     = ' e:\rd\sharpmakes\sharpmake.packageci\sharpmake\sharpmake.functionaltests\fastbuildfunctionaltest\projects\output\Debug_FastBuild_vs2019\PostBuildStampTest.exe _Stamp_Message'
 
     .LinkerOptions          = '/OUT:"%2"'
                             // Input files
@@ -512,7 +512,7 @@ Executable( 'PostBuildStampTest_Release_FastBuild_vs2019_win64_Executable' )
     .LinkerOutput           = '.\$_CURRENT_BFF_DIR_$\output\release_fastbuild_vs2019\postbuildstamptest.exe'
     .LinkerLinkObjects      = false
     .LinkerStampExe         = '.\$_CURRENT_BFF_DIR_$\output\Release_FastBuild_vs2019\PostBuildStamper.exe'
-    .LinkerStampExeArgs     = ' e:\gitlab\anvil.sharpmake.packageci\sharpmake\sharpmake.functionaltests\fastbuildfunctionaltest\projects\output\Release_FastBuild_vs2019\PostBuildStampTest.exe _Stamp_Message'
+    .LinkerStampExeArgs     = ' e:\rd\sharpmakes\sharpmake.packageci\sharpmake\sharpmake.functionaltests\fastbuildfunctionaltest\projects\output\Release_FastBuild_vs2019\PostBuildStampTest.exe _Stamp_Message'
 
     .LinkerOptions          = '/OUT:"%2"'
                             // Input files

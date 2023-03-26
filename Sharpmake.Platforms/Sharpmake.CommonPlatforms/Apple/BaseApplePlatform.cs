@@ -1,16 +1,5 @@
-﻿// Copyright (c) 2020-2021 Ubisoft Entertainment
-// 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-// 
-//     http://www.apache.org/licenses/LICENSE-2.0
-// 
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Copyright (c) Ubisoft. All Rights Reserved.
+// Licensed under the Apache 2.0 License. See LICENSE.md in the project root for license information.
 
 using System;
 using System.Collections.Generic;
@@ -38,6 +27,7 @@ namespace Sharpmake
         public abstract string SimplePlatformString { get; }
         public bool IsMicrosoftPlatform => false;
         public bool IsUsingClang => true;
+        public bool IsLinkerInvokedViaCompiler { get; set; } = false;
         public bool HasDotNetSupport => false; // maybe? (.NET Core)
         public bool HasSharedLibrarySupport => true;
         public bool HasPrecompiledHeaderSupport => true;
@@ -57,6 +47,7 @@ namespace Sharpmake
         public IDictionary<IFastBuildCompilerKey, CompilerFamily> CompilerFamily { get; set; } = new Dictionary<IFastBuildCompilerKey, CompilerFamily>();
         public IDictionary<DevEnv, string> LinkerPath { get; set; } = new Dictionary<DevEnv, string>();
         public IDictionary<DevEnv, string> LinkerExe { get; set; } = new Dictionary<DevEnv, string>();
+        public IDictionary<DevEnv, bool> LinkerInvokedViaCompiler { get; set; } = new Dictionary<DevEnv, bool>();
         public IDictionary<DevEnv, string> LibrarianExe { get; set; } = new Dictionary<DevEnv, string>();
         public IDictionary<DevEnv, Strings> ExtraFiles { get; set; } = new Dictionary<DevEnv, Strings>();
         #endregion
@@ -155,6 +146,11 @@ namespace Sharpmake
             return Enumerable.Empty<Project.Configuration.BuildStepBase>();
         }
 
+        public IEnumerable<Project.Configuration.BuildStepExecutable> GetExtraStampEvents(Project.Configuration configuration, string fastBuildOutputFile)
+        {
+            return Enumerable.Empty<Project.Configuration.BuildStepExecutable>();
+        }
+
         public string GetOutputFilename(Project.Configuration.OutputType outputType, string fastBuildOutputFile) => fastBuildOutputFile;
 
         public void AddCompilerSettings(IDictionary<string, CompilerSettings> masterCompilerSettings, Project.Configuration conf)
@@ -233,6 +229,10 @@ namespace Sharpmake
                 if (!fastBuildSettings.LinkerExe.TryGetValue(devEnv, out linkerExe))
                     linkerExe = "ld";
 
+                bool isLinkerInvokedViaCompiler;
+                if (fastBuildSettings.LinkerInvokedViaCompiler.TryGetValue(devEnv, out isLinkerInvokedViaCompiler))
+                    IsLinkerInvokedViaCompiler = isLinkerInvokedViaCompiler;
+
                 string librarianExe;
                 if (!fastBuildSettings.LibrarianExe.TryGetValue(devEnv, out librarianExe))
                     librarianExe = "ar";
@@ -269,7 +269,7 @@ namespace Sharpmake
                 // for it.
                 case Project.Configuration.OutputType.Exe:
                     return ExecutableFileFullExtension;
-                case Project.Configuration.OutputType.IosApp:
+                case Project.Configuration.OutputType.AppleApp:
                     return ".app";
                 case Project.Configuration.OutputType.IosTestBundle:
                     return ".xctest";
@@ -376,7 +376,7 @@ namespace Sharpmake
         public IEnumerable<string> GetPlatformLibraryFiles(IGenerationContext context)
         {
             var cmdLineOptions = context.CommandLineOptions;
-            string libStd = cmdLineOptions["LibraryStandard"];
+            string libStd = cmdLineOptions["StdLib"];
             if (!libStd.StartsWith("-stdlib=lib"))
                 throw new Error("Stdlib argument doesn't match the expected format");
 
@@ -494,6 +494,8 @@ namespace Sharpmake
                 options["CodeSigningIdentity"] = codeSigningIdentity.Value;
             else if (conf.Platform == Platform.ios)
                 options["CodeSigningIdentity"] = "iPhone Developer"; //Previous Default value in the template
+            else if (conf.Platform == Platform.tvos)
+                options["CodeSigningIdentity"] = "AppleTV Developer"; //Previous Default value in the template
             else
                 options["CodeSigningIdentity"] = FileGeneratorUtilities.RemoveLineTag;
 
@@ -509,10 +511,12 @@ namespace Sharpmake
                 Options.Option(Options.XCode.Compiler.CppLanguageStandard.CPP11, () => options["CppStandard"] = "c++11"),
                 Options.Option(Options.XCode.Compiler.CppLanguageStandard.CPP14, () => options["CppStandard"] = "c++14"),
                 Options.Option(Options.XCode.Compiler.CppLanguageStandard.CPP17, () => options["CppStandard"] = "c++17"),
+                Options.Option(Options.XCode.Compiler.CppLanguageStandard.CPP20, () => options["CppStandard"] = "c++20"),
                 Options.Option(Options.XCode.Compiler.CppLanguageStandard.GNU98, () => options["CppStandard"] = "gnu++98"),
                 Options.Option(Options.XCode.Compiler.CppLanguageStandard.GNU11, () => options["CppStandard"] = "gnu++11"),
                 Options.Option(Options.XCode.Compiler.CppLanguageStandard.GNU14, () => options["CppStandard"] = "gnu++14"),
-                Options.Option(Options.XCode.Compiler.CppLanguageStandard.GNU17, () => options["CppStandard"] = "gnu++17")
+                Options.Option(Options.XCode.Compiler.CppLanguageStandard.GNU17, () => options["CppStandard"] = "gnu++17"),
+                Options.Option(Options.XCode.Compiler.CppLanguageStandard.GNU20, () => options["CppStandard"] = "gnu++20")
             );
 
             options["DevelopmentTeam"] = Options.StringOption.Get<Options.XCode.Compiler.DevelopmentTeam>(conf);
@@ -619,8 +623,8 @@ namespace Sharpmake
             );
 
             context.SelectOption(
-                Options.Option(Options.XCode.Compiler.LibraryStandard.CppStandard, () => { options["LibraryStandard"] = "libstdc++"; cmdLineOptions["LibraryStandard"] = "-stdlib=libstdc++"; }),
-                Options.Option(Options.XCode.Compiler.LibraryStandard.LibCxx, () => { options["LibraryStandard"] = "libc++"; cmdLineOptions["LibraryStandard"] = "-stdlib=libc++"; })
+                Options.Option(Options.XCode.Compiler.LibraryStandard.CppStandard, () => { options["StdLib"] = "libstdc++"; cmdLineOptions["StdLib"] = "-stdlib=libstdc++"; }),
+                Options.Option(Options.XCode.Compiler.LibraryStandard.LibCxx, () => { options["StdLib"] = "libc++"; cmdLineOptions["StdLib"] = "-stdlib=libc++"; })
             );
 
             Strings frameworkPaths = Options.GetStrings<Options.XCode.Compiler.FrameworkPaths>(conf);
@@ -645,11 +649,6 @@ namespace Sharpmake
             );
 
             context.SelectOption(
-                Options.Option(Options.XCode.Compiler.LibraryStandard.CppStandard, () => options["LibraryStandard"] = "libstdc++"),
-                Options.Option(Options.XCode.Compiler.LibraryStandard.LibCxx, () => options["LibraryStandard"] = "libc++")
-            );
-
-            context.SelectOption(
                 Options.Option(Options.XCode.Compiler.ModelTuning.None, () => options["ModelTuning"] = FileGeneratorUtilities.RemoveLineTag),
                 Options.Option(Options.XCode.Compiler.ModelTuning.G3, () => options["ModelTuning"] = "G3"),
                 Options.Option(Options.XCode.Compiler.ModelTuning.G4, () => options["ModelTuning"] = "G4"),
@@ -660,7 +659,7 @@ namespace Sharpmake
             switch (conf.Output)
             {
                 case Project.Configuration.OutputType.Exe:
-                case Project.Configuration.OutputType.IosApp:
+                case Project.Configuration.OutputType.AppleApp:
                     options["MachOType"] = "mh_execute";
                     break;
                 case Project.Configuration.OutputType.Lib:
@@ -690,7 +689,9 @@ namespace Sharpmake
             context.SelectOption(
                 Options.Option(Options.XCode.Compiler.TargetedDeviceFamily.IosAndIpad, () => options["TargetedDeviceFamily"] = "1,2"),
                 Options.Option(Options.XCode.Compiler.TargetedDeviceFamily.Ios, () => options["TargetedDeviceFamily"] = "1"),
-                Options.Option(Options.XCode.Compiler.TargetedDeviceFamily.Ipad, () => options["TargetedDeviceFamily"] = "2")
+                Options.Option(Options.XCode.Compiler.TargetedDeviceFamily.Ipad, () => options["TargetedDeviceFamily"] = "2"),
+                Options.Option(Options.XCode.Compiler.TargetedDeviceFamily.Tvos, () => options["TargetedDeviceFamily"] = "3"),
+                Options.Option(Options.XCode.Compiler.TargetedDeviceFamily.Watchos, () => options["TargetedDeviceFamily"] = "4")
             );
 
             Options.XCode.Compiler.ValidArchs validArchs = Options.GetObject<Options.XCode.Compiler.ValidArchs>(conf);
@@ -906,14 +907,16 @@ namespace Sharpmake
             var options = context.Options;
             var cmdLineOptions = context.CommandLineOptions;
             var conf = context.Configuration;
+            var platform = context.Configuration.Platform;
 
             if (context.Options["GenerateMapFile"] == "true")
             {
                 string mapFileArg = context.CommandLineOptions["GenerateMapFile"];
-                if (!mapFileArg.StartsWith("-Wl,-Map=", StringComparison.Ordinal))
+                string mapOption = $"{platform.GetLinkerOptionPrefix()}-Map=";
+                if (!mapFileArg.StartsWith(mapOption, StringComparison.Ordinal))
                     throw new Error("Map file argument was supposed to start with -Wl,-Map= but it changed! Please update this module!");
                 // since we directly invoke ld and not clang as a linker, we need to remove -Wl,-Map= and pass -map
-                context.CommandLineOptions["GenerateMapFile"] = "-map " + context.CommandLineOptions["GenerateMapFile"].Substring(9);
+                context.CommandLineOptions["GenerateMapFile"] = "-map " + context.CommandLineOptions["GenerateMapFile"].Substring(mapOption.Length);
             }
 
             // TODO: implement me
@@ -923,6 +926,24 @@ namespace Sharpmake
                 Options.Option(Options.XCode.Linker.StripLinkedProduct.Disable, () => options["StripLinkedProduct"] = "NO"),
                 Options.Option(Options.XCode.Linker.StripLinkedProduct.Enable, () => options["StripLinkedProduct"] = "YES")
             );
+
+            context.SelectOption(
+                Options.Option(Options.XCode.Linker.PerformSingleObjectPrelink.Disable, () => options["GenerateMasterObjectFile"] = "NO"),
+                Options.Option(Options.XCode.Linker.PerformSingleObjectPrelink.Enable, () => options["GenerateMasterObjectFile"] = "YES")
+            );
+
+            options["PreLinkedLibraries"] = FileGeneratorUtilities.RemoveLineTag;
+
+            var prelinkedLibrary = Options.XCode.Linker.PrelinkLibraries.Get<Options.XCode.Linker.PrelinkLibraries>(conf);
+            if (!string.IsNullOrEmpty(prelinkedLibrary))
+            {
+                // xcode for some reason does not use arrays for this setting but space separated values
+                options["PreLinkedLibraries"] = prelinkedLibrary;
+            }
+
+            OrderableStrings systemFrameworks = new OrderableStrings(conf.XcodeSystemFrameworks);
+            systemFrameworks.AddRange(conf.XcodeDependenciesSystemFrameworks);
+            cmdLineOptions["SystemFrameworks"] = systemFrameworks.Any() ? "-framework " + systemFrameworks.JoinStrings(" -framework ") : FileGeneratorUtilities.RemoveLineTag;
         }
 
         public void SelectPlatformAdditionalDependenciesOptions(IGenerationContext context)

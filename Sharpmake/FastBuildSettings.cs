@@ -1,16 +1,6 @@
-// Copyright (c) 2017-2021 Ubisoft Entertainment
-// 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-// 
-//     http://www.apache.org/licenses/LICENSE-2.0
-// 
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Copyright (c) Ubisoft. All Rights Reserved.
+// Licensed under the Apache 2.0 License. See LICENSE.md in the project root for license information.
+
 using System;
 using System.Collections.Generic;
 
@@ -44,6 +34,12 @@ namespace Sharpmake
         /// If left null, dlls will be searched in the Redist\ucrt\DLLs\x64 subfolder of the WinSDK10 indicated in the KitsRootPaths.
         /// </summary>
         public static string SystemDllRoot = null;
+
+        /// <summary>
+        /// Full path under which files and folders are considered part of the workspace and can be expressed as relative to one another.
+        /// If left null, project.RootPath will be used instead.
+        /// </summary>
+        public static string WorkspaceRoot = null;
 
         /// <summary>
         /// Cache path can be
@@ -94,6 +90,11 @@ namespace Sharpmake
         public static bool FastBuildUseIDE = true;
         public static bool FastBuildNoUnity = false;
         public static bool FastBuildValidateCopyFiles = true;
+
+        /// <summary>
+        /// Controls whether FastBuild supports a list of LinkerStamp steps
+        /// </summary>
+        public static bool FastBuildSupportLinkerStampList = false;
 
         /// <summary>
         /// Allows retention of build state across BFF changes. Requires v0.97

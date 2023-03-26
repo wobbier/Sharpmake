@@ -1,16 +1,6 @@
-﻿// Copyright (c) 2018-2021 Ubisoft Entertainment
-// 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-// 
-//     http://www.apache.org/licenses/LICENSE-2.0
-// 
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+﻿// Copyright (c) Ubisoft. All Rights Reserved.
+// Licensed under the Apache 2.0 License. See LICENSE.md in the project root for license information.
+
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -177,7 +167,7 @@ namespace Sharpmake.Generators.FastBuild
             // Studio, even if all it does is include the real BFF.
             //
 
-            IEnumerable<ConfigurationsPerBff> confsPerBffs = ConfigurationsPerBff.Create(solution, solutionConfigurations).ToArray();
+            IEnumerable<ConfigurationsPerBff> confsPerBffs = ConfigurationsPerBff.Create(solution, solutionConfigurations);
             foreach (ConfigurationsPerBff confsPerBff in confsPerBffs)
             {
                 if (confsPerBff.Configurations.Any(conf => conf.SolutionFilePath != conf.MasterBffFilePath))
@@ -222,13 +212,10 @@ namespace Sharpmake.Generators.FastBuild
             using (fileGenerator.Declare("masterBffFilePath", Util.PathGetRelative(bffFileInfo.DirectoryName, confsPerBff.BffFilePathWithExtension)))
                 fileGenerator.Write(Bff.Template.ConfigurationFile.IncludeMasterBff);
 
-            using (var bffFileStream = fileGenerator.ToMemoryStream())
-            {
-                if (builder.Context.WriteGeneratedFile(null, bffFileInfo, bffFileStream))
-                    generatedFiles.Add(bffFilePath);
-                else
-                    skippedFiles.Add(bffFilePath);
-            }
+            if (builder.Context.WriteGeneratedFile(null, bffFileInfo, fileGenerator))
+                generatedFiles.Add(bffFilePath);
+            else
+                skippedFiles.Add(bffFilePath);
         }
 
         private static void GenerateMasterBffFiles(Builder builder, IEnumerable<ConfigurationsPerBff> confsPerSolutions)
@@ -316,7 +303,6 @@ namespace Sharpmake.Generators.FastBuild
                 foreach (var solutionProject in solutionProjects)
                 {
                     var project = solutionProject.Project;
-                    string projectPath = new FileInfo(solutionProject.ProjectFile).Directory.FullName;
 
                     // Export projects do not have any bff
                     if (project.SharpmakeProjectType == Project.ProjectTypeAttribute.Export)
@@ -326,7 +312,7 @@ namespace Sharpmake.Generators.FastBuild
                     if (project.SourceFilesFilters != null && (project.SourceFilesFiltersCount == 0 || project.SkipProjectWhenFiltersActive))
                         continue;
 
-                    Solution.Configuration.IncludedProjectInfo includedProject = solutionConfiguration.GetProject(solutionProject.Project.GetType());
+                    Solution.Configuration.IncludedProjectInfo includedProject = solutionConfiguration.GetProject(project.GetType());
                     bool perfectMatch = includedProject != null && solutionProject.Configurations.Contains(includedProject.Configuration);
                     if (!perfectMatch)
                         continue;
@@ -337,9 +323,12 @@ namespace Sharpmake.Generators.FastBuild
 
                     mustGenerateFastbuild = true;
 
-                    IPlatformBff platformBff = platformBffCache.GetValueOrAdd(conf.Platform, PlatformRegistry.Query<IPlatformBff>(conf.Platform));
-
-                    platformBff.AddCompilerSettings(masterBffInfo.CompilerSettings, conf);
+                    var otherConfigurationsInSameBff = project.Configurations.Where(c => conf.BffFullFileName == c.BffFullFileName);
+                    foreach (var c in otherConfigurationsInSameBff)
+                    {
+                        IPlatformBff platformBff = platformBffCache.GetValueOrAdd(c.Platform, PlatformRegistry.Query<IPlatformBff>(c.Platform));
+                        platformBff.AddCompilerSettings(masterBffInfo.CompilerSettings, c);
+                    }
 
                     string fastBuildTargetIdentifier = Bff.GetShortProjectName(project, conf);
 
@@ -398,9 +387,11 @@ namespace Sharpmake.Generators.FastBuild
                             preBuildEvents.Add(eventPair.Key, eventPair.Value);
                         }
 
+                        string projectPath = new FileInfo(solutionProject.ProjectFile).Directory.FullName;
+
                         foreach (var buildEvent in conf.ResolvedEventPreBuildExe)
                         {
-                            string eventKey = ProjectOptionsGenerator.MakeBuildStepName(conf, buildEvent, Vcxproj.BuildStep.PreBuild, project.RootPath, masterBffDirectory);
+                            string eventKey = ProjectOptionsGenerator.MakeBuildStepName(conf, buildEvent, Vcxproj.BuildStep.PreBuild, project.RootPath, projectPath);
                             preBuildEvents.Add(eventKey, buildEvent);
                         }
 
@@ -512,11 +503,10 @@ namespace Sharpmake.Generators.FastBuild
 
             // remove all line that contain RemoveLineTag
             fileGenerator.RemoveTaggedLines();
-            MemoryStream bffCleanMemoryStream = fileGenerator.ToMemoryStream();
 
             // Write master .bff file
             FileInfo bffFileInfo = new FileInfo(masterBffFilePath);
-            bool updated = builder.Context.WriteGeneratedFile(null, bffFileInfo, bffCleanMemoryStream);
+            bool updated = builder.Context.WriteGeneratedFile(null, bffFileInfo, fileGenerator);
 
             foreach (var confsPerSolution in configurationsPerBff)
                 confsPerSolution.Solution.PostGenerationCallback?.Invoke(masterBffDirectory, Path.GetFileNameWithoutExtension(masterBffFileName), FastBuildSettings.FastBuildConfigFileExtension);
@@ -558,11 +548,10 @@ namespace Sharpmake.Generators.FastBuild
 
             // remove all line that contain RemoveLineTag
             fileGenerator.RemoveTaggedLines();
-            MemoryStream bffCleanMemoryStream = fileGenerator.ToMemoryStream();
 
             // Write master bff global settings file
             FileInfo bffFileInfo = new FileInfo(masterBffGlobalConfigFile);
-            if (builder.Context.WriteGeneratedFile(null, bffFileInfo, bffCleanMemoryStream))
+            if (builder.Context.WriteGeneratedFile(null, bffFileInfo, fileGenerator))
             {
                 Project.AddFastbuildMasterGeneratedFile(masterBffGlobalConfigFile);
             }
@@ -652,7 +641,7 @@ namespace Sharpmake.Generators.FastBuild
 
             string envRemoveGuards = FileGeneratorUtilities.RemoveLineTag;
             string fastBuildEnvironments = string.Empty;
-            if (allDevEnv.Contains(DevEnv.xcode4ios))
+            if (allDevEnv.Contains(DevEnv.xcode))
             {
                 // we'll keep the #if guards if we have other devenv in the file
                 if (allDevEnv.Count > 1)

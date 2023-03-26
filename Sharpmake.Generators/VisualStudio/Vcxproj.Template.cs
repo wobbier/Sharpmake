@@ -1,16 +1,6 @@
-﻿// Copyright (c) 2017-2021 Ubisoft Entertainment
-// 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-// 
-//     http://www.apache.org/licenses/LICENSE-2.0
-// 
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+﻿// Copyright (c) Ubisoft. All Rights Reserved.
+// Licensed under the Apache 2.0 License. See LICENSE.md in the project root for license information.
+
 namespace Sharpmake.Generators.VisualStudio
 {
     public partial class Vcxproj
@@ -42,13 +32,11 @@ namespace Sharpmake.Generators.VisualStudio
                 public static string ProjectDescription =
 @"  <PropertyGroup Label=""Globals"">
     <ProjectGuid>{[guid]}</ProjectGuid>
-    <TargetFrameworkVersion>[targetFramework]</TargetFrameworkVersion>
+    <TargetFrameworkVersion>[targetFrameworkVersion]</TargetFrameworkVersion>
+    <TargetFramework>[targetFramework]</TargetFramework>
     <Keyword>[projectKeyword]</Keyword>
     <DefaultLanguage>en-US</DefaultLanguage>
     <RootNamespace>[projectName]</RootNamespace>
-    <SccProjectName>[sccProjectName]</SccProjectName>
-    <SccLocalPath>[sccLocalPath]</SccLocalPath>
-    <SccProvider>[sccProvider]</SccProvider>
     <ProjectName>[projectName]</ProjectName>
 ";
 
@@ -189,8 +177,26 @@ namespace Sharpmake.Generators.VisualStudio
 @"    <Import Project=""[importedTargetsFile]"" Condition=""'$(Configuration)|$(Platform)'=='[conf.Name]|[platformName]'"" />
 ";
 
+                // Support both regular and native package types, whichever happens to exist
+                public static string ProjectTargetsNugetReferenceImport =
+@"    <Import Project=""$(SolutionDir)\packages\[packageName].[packageVersion]\build\[packageName].targets"" Condition=""Exists('$(SolutionDir)\packages\[packageName].[packageVersion]\build\[packageName].targets')"" />
+    <Import Project=""$(SolutionDir)\packages\[packageName].[packageVersion]\build\native\[packageName].targets"" Condition=""Exists('$(SolutionDir)\packages\[packageName].[packageVersion]\build\native\[packageName].targets')"" />
+";
+
+                public static string ProjectTargetsNugetReferenceError =
+@"    <Error Condition=""!Exists('$(SolutionDir)\packages\[packageName].[packageVersion]\build\[packageName].targets') and !Exists('$(SolutionDir)\packages\[packageName].[packageVersion]\build\native\[packageName].targets')"" Text=""$([[System.String]]::Format('$(ErrorText)', '$(SolutionDir)\packages\[packageName].[packageVersion]\build\native\[packageName].targets'))"" />
+";
+
                 public static string ProjectTargetsEnd =
 @"  </ImportGroup>
+";
+
+                public static string ProjectCustomTargetsBegin =
+@"  <Target Name=""name"" BeforeTargets=""PrepareForBuild"">
+";
+
+                public static string ProjectCustomTargetsEnd =
+@"  </Target>
 ";
 
                 public static string ProjectConfigurationsResourceCompile =

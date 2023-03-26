@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2021 Ubisoft Entertainment
+﻿// Copyright (c) 2021-2022 Ubisoft Entertainment
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,6 +38,8 @@ namespace HelloAndroid
             IsTargetFileNameToLower = false;
 
             SourceRootPath = @"[project.RootPath]\[project.Name]";
+
+            CustomProperties.Add("HostTag", "windows-x86_64");
         }
 
         [ConfigurePriority(ConfigurePriorities.All)]
@@ -45,7 +47,7 @@ namespace HelloAndroid
         public virtual void ConfigureAll(Configuration conf, CommonTarget target)
         {
             conf.ProjectFileName = "[project.Name]_[target.Platform]";
-            if (target.DevEnv != DevEnv.xcode4ios)
+            if (target.DevEnv != DevEnv.xcode)
                 conf.ProjectFileName += "_[target.DevEnv]";
             conf.ProjectPath = Path.Combine(Globals.TmpDirectory, @"projects\[project.Name]");
             conf.IsFastBuild = target.BuildSystem == BuildSystem.FastBuild;

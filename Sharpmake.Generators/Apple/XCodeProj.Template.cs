@@ -1,16 +1,5 @@
-﻿// Copyright (c) 2017, 2020-2021 Ubisoft Entertainment
-// 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-// 
-//     http://www.apache.org/licenses/LICENSE-2.0
-// 
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Copyright (c) Ubisoft. All Rights Reserved.
+// Licensed under the Apache 2.0 License. See LICENSE.md in the project root for license information.
 
 using System.Collections.Generic;
 
@@ -269,11 +258,13 @@ namespace Sharpmake.Generators.Apple
 				INFOPLIST_FILE = ""[item.Options.InfoPListFile]"";
 				INSTALL_PATH = ""[item.Target.ProductInstallPath]"";
 				IPHONEOS_DEPLOYMENT_TARGET = ""[item.Options.IPhoneOSDeploymentTarget]"";
+				TVOS_DEPLOYMENT_TARGET = ""[item.Options.TvOSDeploymentTarget]"";
+				MACOSX_DEPLOYMENT_TARGET = [item.Options.MacOSDeploymentTarget];
+				WATCHOS_DEPLOYMENT_TARGET = ""[item.Options.WatchOSDeploymentTarget]"";
 				LIBRARY_SEARCH_PATHS = [item.Options.LibraryPaths];
 				""LIBRARY_SEARCH_PATHS[sdk=iphoneos*]"" = [item.Options.SpecificDeviceLibraryPaths];
 				""LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]"" = [item.Options.SpecificSimulatorLibraryPaths];
 				MACH_O_TYPE = ""[item.Options.MachOType]"";
-				MACOSX_DEPLOYMENT_TARGET = [item.Options.MacOSDeploymentTarget];
 				OBJROOT = ""[item.Configuration.IntermediatePath]"";
 				PRESERVE_DEAD_CODE_INITS_AND_TERMS = [item.Options.PreserveDeadCodeInitsAndTerms];
 				PRODUCT_BUNDLE_IDENTIFIER = ""[item.Options.ProductBundleIdentifier]"";
@@ -283,6 +274,10 @@ namespace Sharpmake.Generators.Apple
 				STRIP_INSTALLED_PRODUCT = [item.Options.StripLinkedProduct];
 				SYMROOT = ""[item.Options.BuildDirectory]"";
 				VALID_ARCHS = ""[item.Options.ValidArchs]"";
+				GENERATE_MASTER_OBJECT_FILE = [item.Options.GenerateMasterObjectFile];
+				PRELINK_LIBS = ""[item.Options.PreLinkedLibraries]"";
+				SUPPORTS_MACCATALYST = ""[item.Options.SupportsMaccatalyst]"";
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = ""[item.Options.SupportsMacDesignedForIphoneIpad]"";
 			};
 			name = [item.Options.TargetName];
 		};
@@ -333,7 +328,7 @@ namespace Sharpmake.Generators.Apple
 				ASSETCATALOG_COMPILER_APPICON_NAME = [item.Options.AssetCatalogCompilerAppIconName];
 				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = [item.Options.ClangAnalyzerLocalizabilityNonlocalized];
 				CLANG_CXX_LANGUAGE_STANDARD = ""[item.Options.CppStandard]"";
-				CLANG_CXX_LIBRARY = ""[item.Options.LibraryStandard]"";
+				CLANG_CXX_LIBRARY = ""[item.Options.StdLib]"";
 				CLANG_ENABLE_MODULES = [item.Options.ClangEnableModules];
 				CLANG_ENABLE_OBJC_ARC = [item.Options.AutomaticReferenceCounting];
 				CLANG_ENABLE_OBJC_WEAK = [item.Options.ObjCWeakReferences];

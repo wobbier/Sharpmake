@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2020-2021 Ubisoft Entertainment
+﻿// Copyright (c) 2020-2022 Ubisoft Entertainment
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@ namespace HelloLinux
 
             conf.AddPrivateDependency<Dll1Project>(target);
             conf.AddPrivateDependency<StaticLib2Project>(target);
+            conf.AddPrivateDependency<HeaderOnlyLibProject>(target);
 
             conf.Defines.Add("CREATION_DATE=\"October 2020\"");
         }
