@@ -53,38 +53,57 @@ Settings
     [CachePath]
     [WorkerConnectionLimit]
     .AllowDBMigration_Experimental = [fastBuildAllowDBMigration]
+    .ConcurrencyGroups = [fastbuildConcurrencyGroupList]
 [AdditionalGlobalSettings]
 }
 ";
 
+                public static string ConcurrencyGroup =
+@"[fastBuildConcurrencyGroupSectionName] =
+[
+    .ConcurrencyGroupName = '[fastBuildConcurrencyGroupName]'
+    .ConcurrencyLimit = [fastBuildConcurrencyLimit]
+    .ConcurrencyPerJobMiB = [fastBuildConcurrencyPerJobMiB]
+]
+";
+
                 public const string WinEnvironment =
-@"#if __WINDOWS__[envRemoveGuards]
-    #import TMP
+@"    #import TMP
     #import TEMP
     #import USERPROFILE
+    #import COMSPEC
     .Environment =
     {
         ""TMP=$TMP$"",
         ""TEMP=$TEMP$"",
         ""USERPROFILE=$USERPROFILE$"",
+        ""COMSPEC=$COMSPEC$"",
         ""SystemRoot=[fastBuildSystemRoot]""
         ""PATH=[fastBuildPATH]""
+[envAdditionalVariables]
     }
-#endif[envRemoveGuards]
 ";
 
                 public const string OsxEnvironment =
-@"#if __OSX__[envRemoveGuards]
-    #import TMPDIR
+@"    #import TMPDIR
     .Environment =
     {
         ""TMPDIR=$TMPDIR$"",
         ""PATH=[fastBuildPATH]""
+[envAdditionalVariables]
     }
-#endif[envRemoveGuards]
+";
+
+                public const string LinuxEnvironment =
+@"    .Environment =
+    {
+        ""PATH=[fastBuildPATH]""
+[envAdditionalVariables]
+    }
 ";
 
                 public static string MasmConfigNameSuffix = "Masm";
+                public static string NasmConfigNameSuffix = "Nasm";
                 public static string Win64ConfigName = ".win64Config";
 
                 public static string CompilerSetting = @"
@@ -112,6 +131,15 @@ Compiler( '[fastBuildResourceCompilerName]' )
 Compiler( '[fastBuildMasmCompilerName]' )
 {
     .Executable             = '[fastBuildMasmCompiler]'
+    .CompilerFamily         = 'custom'
+}
+";
+
+                // TODOANT
+                internal static string NasmCompilerSettings = @"
+Compiler( '[fastBuildNasmCompilerName]' )
+{
+    .Executable             = '[fastBuildNasmCompiler]'
     .CompilerFamily         = 'custom'
 }
 ";
@@ -274,6 +302,7 @@ Compiler( '[fastBuildMasmCompilerName]' )
     .CompilerInputPattern     = [fastBuildCompilerInputPattern]
     .CompilerInputExcludedFiles = [fastBuildInputExcludedFiles]
     .CompilerInputFiles       = [fastBuildSourceFiles]
+    .CompilerInputFilesRoot   = '[fastBuildInputFilesRootPath]'
 
 ";
 
@@ -290,6 +319,14 @@ Compiler( '[fastBuildMasmCompilerName]' )
     // ----------------
     .CompilerOptions        = ' $CompilerExtraOptions$'
                             + ' /Fo""%2"" /c /Ta ""%1""'
+";
+                // TODOANT
+                public static string CompilerOptionsNasm = @"
+    // Compiler options
+    // ----------------
+    .CompilerOptions        = ' $CompilerExtraOptions$'
+                            + ' -Xvc -Ox -o""%2"" ""%1""'
+                            + ' [cmdLineOptions.NasmCompilerFormat] '
 ";
                 public static string CompilerOptionsClang = @"
     // Compiler options
@@ -321,10 +358,19 @@ Compiler( '[fastBuildMasmCompilerName]' )
 
                 public static string MasmCompilerExtraOptions = @"
     .CompilerExtraOptions   = ''
+            + ' [cmdLineOptions.AdditionalAssemblyIncludeDirectories]'
             + ' /nologo'
             + ' /W3'
             + ' /errorReport:queue'
             + ' [cmdLineOptions.PreprocessorDefinitions]'
+";
+
+                // TODOANT: NasmCompilerExtraOptions
+                public static string NasmCompilerExtraOptions = @"
+    .CompilerExtraOptions   = ''
+            + ' [cmdLineOptions.AdditionalAssemblyNasmIncludeDirectories]'
+            + ' [cmdLineOptions.NasmPreprocessorDefinitions]'
+            + ' [cmdLineOptions.PreIncludedFiles]'
 ";
 
                 public static string CPPCompilerExtraOptions = @"
@@ -348,6 +394,7 @@ Compiler( '[fastBuildMasmCompilerName]' )
             + ' [cmdLineOptions.IgnoreStandardIncludePath]'
             + ' [cmdLineOptions.GeneratePreprocessedFile]'
             + ' [cmdLineOptions.KeepComments]'
+            + ' [cmdLineOptions.UseStandardConformingPreprocessor]'
             + ' [cmdLineOptions.StringPooling]'
             + ' [cmdLineOptions.MinimalRebuild]'
             + ' [cmdLineOptions.ExceptionHandling]'
@@ -411,7 +458,7 @@ Compiler( '[fastBuildMasmCompilerName]' )
     .CompilerOptionsDeoptimized = '[fastBuildClangFileLanguage]""%1"" -o ""%2"" -c'
                             + ' [fastBuildCompilerPCHOptionsClang]'
                             + ' $CompilerExtraOptions$'
-                            + ' -O0'
+                            + ' [fastBuildCompilerDeoptimizeOptionClang]'
 ";
                 public static string DeOptimizeOption = @"
     .DeoptimizeWritableFiles = [fastBuildDeoptimizationWritableFiles]
@@ -485,6 +532,7 @@ Copy( '[fastBuildCopyAlias]' )
     .LinkerLinkObjects      = [fastBuildLinkerLinkObjects]
     .LinkerStampExe         = [fastBuildStampExecutable]
     .LinkerStampExeArgs     = [fastBuildStampArguments]
+    .ConcurrencyGroupName   = '[fastbuildConcurrencyGroupName]'
 ";
 
                 public static string ResourcesBeginSection = @"

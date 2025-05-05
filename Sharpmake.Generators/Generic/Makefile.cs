@@ -348,7 +348,7 @@ namespace Sharpmake.Generators.Generic
                     using (fileGenerator.Declare("objectFile", file.GetObjectFileName()))
                     using (fileGenerator.Declare("sourceFile", PathMakeUnix(file.FileNameProjectRelative)))
                     {
-                        if (file.FileExtensionLower == ".c")
+                        if (!project.SourceFilesCPPExtensions.Contains(file.FileExtensionLower))
                         {
                             fileGenerator.Write(Template.Project.ObjectRuleC);
                         }
@@ -391,7 +391,7 @@ namespace Sharpmake.Generators.Generic
 
                 // Validate that 2 conf name in the same project and for a given platform don't have the same name.
                 Project.Configuration otherConf;
-                string projectUniqueName = conf.Name + Util.GetPlatformString(conf.Platform, conf.Project, conf.Target);
+                string projectUniqueName = conf.Name + Util.GetToolchainPlatformString(conf.Platform, conf.Project, conf.Target);
                 if (configurationNameMapping.TryGetValue(projectUniqueName, out otherConf))
                 {
                     throw new Error(
@@ -579,6 +579,10 @@ namespace Sharpmake.Generators.Generic
             var deps = new OrderableStrings();
             foreach (Project.Configuration depConf in conf.ResolvedDependencies)
             {
+                // Ignore projects marked as Export
+                if (depConf.Project.SharpmakeProjectType == Project.ProjectTypeAttribute.Export)
+                    continue;
+
                 switch (depConf.Output)
                 {
                     case Project.Configuration.OutputType.None:

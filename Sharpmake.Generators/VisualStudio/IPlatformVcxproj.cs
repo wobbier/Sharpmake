@@ -54,6 +54,7 @@ namespace Sharpmake.Generators.VisualStudio
         IEnumerable<string> GetPlatformIncludePaths(IGenerationContext context);
         IEnumerable<IncludeWithPrefix> GetPlatformIncludePathsWithPrefix(IGenerationContext context);
         IEnumerable<string> GetResourceIncludePaths(IGenerationContext context);
+        IEnumerable<string> GetAssemblyIncludePaths(IGenerationContext context);
 
         IEnumerable<string> GetCxUsingPath(IGenerationContext context);
 
@@ -81,6 +82,7 @@ namespace Sharpmake.Generators.VisualStudio
         void GenerateProjectCompileVcxproj(IVcxprojGenerationContext context, IFileGenerator generator);
         void GenerateProjectLinkVcxproj(IVcxprojGenerationContext context, IFileGenerator generator);
         void GenerateProjectMasmVcxproj(IVcxprojGenerationContext context, IFileGenerator generator);
+        void GenerateProjectNasmVcxproj(IVcxprojGenerationContext context, IFileGenerator generator);
         void GenerateUserConfigurationFile(Project.Configuration conf, IFileGenerator generator); // Should take IVcxprojGenerationContext but this is called by BaseUserFile which should not know that interface.
         void GenerateRunFromPcDeployment(IVcxprojGenerationContext context, IFileGenerator generator);
 
@@ -99,6 +101,6 @@ namespace Sharpmake.Generators.VisualStudio
         IEnumerable<Tuple<string, List<Vcxproj.ProjectFile>>> GetPlatformFileLists(IVcxprojGenerationContext context);
 
         // TODO: Refactor this.
-        void SetupPlatformLibraryOptions(ref string platformLibExtension, ref string platformOutputLibExtension, ref string platformPrefixExtension);
+        void SetupPlatformLibraryOptions(out string platformLibExtension, out string platformOutputLibExtension, out string platformPrefixExtension, out string platformLibPrefix);
     }
 }

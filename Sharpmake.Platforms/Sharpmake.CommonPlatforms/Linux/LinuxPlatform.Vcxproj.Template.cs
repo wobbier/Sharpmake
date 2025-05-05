@@ -13,7 +13,7 @@ namespace Sharpmake
             private const string _projectConfigurationsCompileTemplate =
                 @"    <ClCompile>
       <PrecompiledHeader>[options.UsePrecompiledHeader]</PrecompiledHeader>
-      <PreprocessorDefinitions>[options.PreprocessorDefinitions];%(PreprocessorDefinitions);</PreprocessorDefinitions>
+      <PreprocessorDefinitions>[EscapeXML:options.PreprocessorDefinitions];%(PreprocessorDefinitions);</PreprocessorDefinitions>
       <ForcedIncludeFiles>[options.ForcedIncludeFiles]</ForcedIncludeFiles>
       <DebugInformationFormat>[options.DebugInformationFormat]</DebugInformationFormat>
       <Warnings>[options.Warnings]</Warnings>
@@ -79,6 +79,7 @@ namespace Sharpmake
     <LocalDebuggerCommandArguments>[conf.VcxprojUserFile.LocalDebuggerCommandArguments]</LocalDebuggerCommandArguments>
     <LocalDebuggerWorkingDirectory>[conf.VcxprojUserFile.LocalDebuggerWorkingDirectory]</LocalDebuggerWorkingDirectory>
     <LocalDebuggerAttach>[conf.VcxprojUserFile.LocalDebuggerAttachString]</LocalDebuggerAttach>
+    <PreLaunchCommand>[conf.VcxprojUserFile.PreLaunchCommand]</PreLaunchCommand>
     <RemoteDebuggerCommand>[conf.VcxprojUserFile.RemoteDebuggerCommand]</RemoteDebuggerCommand>
     <RemoteDebuggerCommandArguments>[conf.VcxprojUserFile.RemoteDebuggerCommandArguments]</RemoteDebuggerCommandArguments>
     <RemoteDebuggingMode>[conf.VcxprojUserFile.RemoteDebuggingMode]</RemoteDebuggingMode>

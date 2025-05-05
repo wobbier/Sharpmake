@@ -67,7 +67,7 @@ namespace Sharpmake
         [Obsolete("Default references are always used.")]
         public bool UseDefaultReferences = true;
 
-        public static readonly string[] DefaultReferences = BasicReferenceAssemblies.References.All.Select(r => r.FileName).ToArray();
+        public static readonly string[] DefaultReferences = BasicReferenceAssemblies.ReferenceInfos.All.Select(r => r.FileName).ToArray();
 
         private class AssemblyInfo : IAssemblyInfo
         {
@@ -75,6 +75,9 @@ namespace Sharpmake
             public string DebugProjectName { get; set; }
             public Assembly Assembly { get; set; }
             public IReadOnlyCollection<string> SourceFiles => _sourceFiles;
+            public IReadOnlyCollection<string> NoneFiles => _noneFiles;
+            
+            
             [Obsolete("Use RuntimeReference instead")]
             public IReadOnlyCollection<string> References => RuntimeReferences;
             public IReadOnlyCollection<string> RuntimeReferences => _runtimeReferences;
@@ -83,6 +86,8 @@ namespace Sharpmake
             public bool UseDefaultReferences { get; set; }
 
             public List<string> _sourceFiles = new List<string>();
+            public List<string> _noneFiles = new List<string>();
+
             public List<string> _runtimeReferences = new List<string>();
             public List<string> _buildReferences = new List<string>();
             public Dictionary<string, IAssemblyInfo> _sourceReferences = new Dictionary<string, IAssemblyInfo>();
@@ -367,6 +372,12 @@ namespace Sharpmake
                 }
             }
 
+            public void AddNoneFile(string file)
+            {
+                if (!_assemblyInfo._noneFiles.Contains(file))
+                    _assemblyInfo._noneFiles.Add(file);
+            }
+
             [Obsolete("Use AddRuntimeReference() instead")]
             public void AddReference(string file) => AddRuntimeReference(file);
 
@@ -441,25 +452,35 @@ namespace Sharpmake
             return assemblyInfo;
         }
 
+        private ConcurrentDictionary<string, string> _buildReferenceFullNames = new ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
         private HashSet<string> GetReferencesForBuild()
         {
-            HashSet<string> references = new HashSet<string>();
+            // First find the assembly
+            Parallel.ForEach(_buildReferences, (buildAssemblyfile) =>
+            {
+                string fullPath = AssemblyName.GetAssemblyName(buildAssemblyfile).FullName;
+                _buildReferenceFullNames.TryAdd(fullPath, buildAssemblyfile);
+            });
+
+            var references = new ConcurrentDictionary<string, bool>();
 
             // Search if we have a more suitable build reference for each runtime reference
-            foreach (string assemblyFile in _references)
+            Parallel.ForEach(_references, (assemblyFile) =>
             {
                 var assemblyFullName = AssemblyName.GetAssemblyName(assemblyFile).FullName;
-                var buildAssemblyFile = _buildReferences.SingleOrDefault(buildAssemblyfile => string.Equals(assemblyFullName, AssemblyName.GetAssemblyName(buildAssemblyfile).FullName, StringComparison.OrdinalIgnoreCase));
-                references.Add(buildAssemblyFile ?? assemblyFile);
-            }
+                string buildAssemblyFile = null;
+                _buildReferenceFullNames.TryGetValue(assemblyFullName, out buildAssemblyFile);
+                references.TryAdd(buildAssemblyFile ?? assemblyFile, true);
+            });
 
             foreach (Assembly assembly in _assemblies)
             {
                 if (!assembly.IsDynamic)
-                    references.Add(assembly.Location);
+                    references.TryAdd(assembly.Location, true);
             }
 
-            return references;
+            return references.Keys.ToHashSet<string>();
         }
 
         private SourceText ReadSourceCode(string path)
@@ -490,12 +511,12 @@ namespace Sharpmake
             foreach (var reference in fileReferences.Where(r => !string.IsNullOrEmpty(r)))
             {
                 // Skip references that are already provided by the runtime
-                if (BasicReferenceAssemblies.All.Any(a => string.Equals(Path.GetFileName(reference), a.FilePath, StringComparison.OrdinalIgnoreCase)))
+                if (BasicReferenceAssemblies.References.All.Any(a => string.Equals(Path.GetFileName(reference), a.FilePath, StringComparison.OrdinalIgnoreCase)))
                     continue;
                 metadataReferences.Add(MetadataReference.CreateFromFile(reference));
             }
 
-            metadataReferences.AddRange(BasicReferenceAssemblies.All);
+            metadataReferences.AddRange(BasicReferenceAssemblies.References.All);
 
             // suppress assembly redirect warnings
             // cf. https://github.com/dotnet/roslyn/issues/19640

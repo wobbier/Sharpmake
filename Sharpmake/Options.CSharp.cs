@@ -207,6 +207,13 @@ namespace Sharpmake
                 [Default]
                 Disabled
             }
+            public enum PublishAot
+            {
+                Enabled,
+                [Default]
+                Disabled
+            }
+
 
             public class UpdateInterval : IntOption
             {
@@ -471,6 +478,9 @@ namespace Sharpmake
                 CSharp8,
                 CSharp9,
                 CSharp10,
+                CSharp11,
+                CSharp12,
+                CSharp13,
             }
 
             // Disable warning MSB3270 when disabled

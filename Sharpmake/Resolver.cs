@@ -93,6 +93,17 @@ namespace Sharpmake
     /// </summary>
     public class Resolver
     {
+        /// <summary>
+        /// This enumeration can be used to implement conditions or validations based on the resolve state.
+        /// </summary>
+        public enum ResolveStates
+        {
+            NotResolved, // The object is not resolved
+            InProgress, // The object is currently being resolved
+            Resolved // The object has been resolved.
+        };
+
+
         private class TypeWrapper
         {
             public List<MemberInfo> MemberInfos;
@@ -594,7 +605,8 @@ namespace Sharpmake
         private enum PropertyModifier
         {
             None,
-            Lower
+            Lower,
+            EscapeXML
         }
 
         private static readonly char[] s_modifierNameSplitter = new[] { ':' };
@@ -626,6 +638,8 @@ namespace Sharpmake
                     return input;
                 case PropertyModifier.Lower:
                     return input.ToLowerInvariant();
+                case PropertyModifier.EscapeXML:
+                    return Util.EscapeXml(input);
                 default:
                     throw new NotSupportedException($"Don't know how to apply modifier {modifier} to '{input}'");
             }
@@ -728,6 +742,12 @@ namespace Sharpmake
             if (parameter == null)
             {
                 throw new NotFoundException(parameterName + name + " is null on target type " + refCountedReference.Value.GetType().Name + ", please set a proper value for sharpmake to resolve it");
+            }
+
+            // Handle platform names in case they are provided by a platform extension, this allows "[target.Platform]" to be properly resolved
+            if (parameter is Platform platformParameter)
+            {
+                parameter = Util.GetSimplePlatformString(platformParameter);
             }
 
             return ApplyModifier(modifier, parameter.ToString());

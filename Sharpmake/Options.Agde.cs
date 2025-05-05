@@ -1,6 +1,8 @@
 // Copyright (c) Ubisoft. All Rights Reserved.
 // Licensed under the Apache 2.0 License. See LICENSE.md in the project root for license information.
 
+using System;
+
 namespace Sharpmake
 {
     public static partial class Options
@@ -54,6 +56,15 @@ namespace Sharpmake
                 }
 
                 /// <summary>
+                /// Output Apk name for gradle build which can be set per configuration.
+                /// </summary>
+                public class AndroidGradlePackageOutputName : StringOption
+                {
+                    public AndroidGradlePackageOutputName(string androidGradlePackageOutputName)
+                       : base(androidGradlePackageOutputName) { }
+                }
+
+                /// <summary>
                 /// The apk file used for debugging which can be set per configuration, is usually for FastBuild configuration.
                 /// </summary>
                 public class AndroidApkLocation : PathOption
@@ -77,6 +88,20 @@ namespace Sharpmake
                 {
                     public AndroidPreApkInstallCommands(string androidPreApkInstallCommands)
                        : base(androidPreApkInstallCommands) { }
+                }
+
+
+                /// <summary>
+                /// Android Packaging with Gradle
+                /// </summary>
+                /// <remarks>
+                /// Specifies if you want to create the APK with Gradle
+                /// </remarks>
+                public enum AndroidGradlePackaging
+                {
+                    [Default]
+                    Enable,
+                    Disable
                 }
 
                 /// <summary>
@@ -268,11 +293,26 @@ namespace Sharpmake
                 /// <summary>
                 /// Multi-processor Compilation
                 /// </summary>
+                [Obsolete("Use NativeBuildBackend instead i.e.: Enable = MultiToolTaskMSBuild, Disable = OriginalMSBuild", true)]
                 public enum MultiProcessorCompilation
                 {
                     [Default]
                     Enable,
                     Disable
+                }
+
+                /// <summary>
+                /// NativeBuildBackend
+                /// </summary>
+                /// /// <remarks>
+                /// Determines which backend visual studio uses that are supported by AGDE
+                /// </remarks>
+                public enum NativeBuildBackend
+                {
+                    [Default]
+                    MultiToolTaskMSBuild,
+                    OriginalMSBuild,
+                    Ninja
                 }
 
                 /// <summary>
@@ -397,6 +437,14 @@ namespace Sharpmake
                     Cpp17,
 
                     /// <summary>
+                    /// C++20
+                    /// </summary>
+                    /// <remarks>
+                    /// C++20 Language Standard.
+                    /// </remarks>
+                    Cpp20,
+
+                    /// <summary>
                     /// C++98 (GNU Dialect)
                     /// </summary>
                     /// <remarks>
@@ -442,7 +490,15 @@ namespace Sharpmake
                     /// <remarks>
                     /// C++17 (GNU Dialect) Language Standard.
                     /// </remarks>
-                    Gnupp17
+                    Gnupp17,
+
+                    /// <summary>
+                    /// C++20 (GNU Dialect)
+                    /// </summary>
+                    /// <remarks>
+                    /// C++20 (GNU Dialect) Language Standard.
+                    /// </remarks>
+                    Gnupp20
                 }
 
                 /// <summary>

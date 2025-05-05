@@ -14,7 +14,7 @@ namespace Sharpmake
       <ExternalWarningLevel>[options.ExternalWarningLevel]</ExternalWarningLevel>
       <ExternalTemplatesDiagnostics>[options.ExternalTemplatesDiagnostics]</ExternalTemplatesDiagnostics>
       <Optimization>[options.Optimization]</Optimization>
-      <PreprocessorDefinitions>[options.PreprocessorDefinitions];%(PreprocessorDefinitions);$(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>[EscapeXML:options.PreprocessorDefinitions];%(PreprocessorDefinitions);$(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>[options.AdditionalIncludeDirectories]</AdditionalIncludeDirectories>
       <AdditionalUsingDirectories>[options.AdditionalUsingDirectories]</AdditionalUsingDirectories>
       <DebugInformationFormat>[options.DebugInformationFormat]</DebugInformationFormat>
@@ -35,6 +35,7 @@ namespace Sharpmake
       <PreprocessToFile>[options.GeneratePreprocessedFile]</PreprocessToFile>
       <PreprocessSuppressLineNumbers>[options.PreprocessSuppressLineNumbers]</PreprocessSuppressLineNumbers>
       <PreprocessKeepComments>[options.KeepComments]</PreprocessKeepComments>
+      <UseStandardPreprocessor>[options.UseStandardConformingPreprocessor]</UseStandardPreprocessor>
       <StringPooling>[options.StringPooling]</StringPooling>
       <MinimalRebuild>[options.MinimalRebuild]</MinimalRebuild>
       <ExceptionHandling>[options.ExceptionHandling]</ExceptionHandling>
@@ -74,6 +75,9 @@ namespace Sharpmake
       <ForcedIncludeFiles>[options.ForcedIncludeFiles]</ForcedIncludeFiles>
       <ForcedUsingFiles>[options.ForcedUsingFiles]</ForcedUsingFiles>
       <SupportJustMyCode>[options.SupportJustMyCode]</SupportJustMyCode>
+      <MaxFilesInUnityFile>[options.MaxFilesPerJumboFile]</MaxFilesInUnityFile>
+      <MinFilesInUnityFile>[options.MinFilesPerJumboFile]</MinFilesInUnityFile>
+      <MinUnityFiles>[options.MinJumboFiles]</MinUnityFiles>
     </ClCompile>
 ";
 
@@ -172,7 +176,6 @@ namespace Sharpmake
     <TranslateIncludes>[options.TranslateIncludes]</TranslateIncludes>
     <CharacterSet>[options.CharacterSet]</CharacterSet>
     <UseOfMfc>[options.UseOfMfc]</UseOfMfc>
-    <CLRSupport>[clrSupport]</CLRSupport>
     <WholeProgramOptimization>[options.WholeProgramOptimization]</WholeProgramOptimization>
     <PlatformToolset>[options.PlatformToolset]</PlatformToolset>
     <TrackFileAccess>[options.TrackFileAccess]</TrackFileAccess>
@@ -180,6 +183,7 @@ namespace Sharpmake
     <WindowsTargetPlatformVersion>[options.WindowsTargetPlatformVersion]</WindowsTargetPlatformVersion>
     <SpectreMitigation>[options.SpectreMitigation]</SpectreMitigation>
     <EnableASAN>[options.EnableASAN]</EnableASAN>
+    <EnableUnitySupport>[options.JumboBuild]</EnableUnitySupport>
   </PropertyGroup>
 ";
 
@@ -267,11 +271,18 @@ del ""[options.OutputDirectory]\[conf.TargetFileFullName].ilk"" &gt;NUL 2&gt;NUL
 del ""[options.OutputDirectory]\[conf.TargetFileFullName].lib"" &gt;NUL 2&gt;NUL
 del ""[options.OutputDirectory]\[conf.TargetFileFullName].pdb"" &gt;NUL 2&gt;NUL</NMakeCleanCommandLine>
     <NMakeOutput>[options.OutputFile]</NMakeOutput>
-    <NMakePreprocessorDefinitions>[options.PreprocessorDefinitions]</NMakePreprocessorDefinitions>
+    <NMakePreprocessorDefinitions>[EscapeXML:options.PreprocessorDefinitions][EscapeXML:options.IntellisenseAdditionalDefines]</NMakePreprocessorDefinitions>
     <NMakeIncludeSearchPath>[options.AdditionalIncludeDirectories]</NMakeIncludeSearchPath>
     <NMakeForcedIncludes>[options.ForcedIncludeFiles]</NMakeForcedIncludes>
-    <AdditionalOptions>[options.AdditionalOptions]</AdditionalOptions>
+    <AdditionalOptions>[options.IntellisenseCommandLineOptions]</AdditionalOptions>
   </PropertyGroup>
+  <ItemDefinitionGroup Condition=""'$(Configuration)|$(Platform)'=='[conf.Name]|[platformName]'"">
+    <NMakeCompile>
+      <NMakeCompileFileCommandLine>cd [relativeMasterBffPath]
+[conf.FastBuildCustomActionsBeforeBuildCommand]
+[fastBuildMakeCommandCompileFile] </NMakeCompileFileCommandLine>
+    </NMakeCompile>
+  </ItemDefinitionGroup>
 ";
 
         private const string _projectConfigurationsCustomMakefile =
@@ -282,11 +293,25 @@ del ""[options.OutputDirectory]\[conf.TargetFileFullName].pdb"" &gt;NUL 2&gt;NUL
     <NMakeReBuildCommandLine>[conf.CustomBuildSettings.RebuildCommand]</NMakeReBuildCommandLine>
     <NMakeCleanCommandLine>[conf.CustomBuildSettings.CleanCommand]</NMakeCleanCommandLine>
     <NMakeOutput>[conf.CustomBuildSettings.OutputFile]</NMakeOutput>
-    <NMakePreprocessorDefinitions>[options.PreprocessorDefinitions]</NMakePreprocessorDefinitions>
+    <NMakePreprocessorDefinitions>[EscapeXML:options.PreprocessorDefinitions]</NMakePreprocessorDefinitions>
     <NMakeIncludeSearchPath>[options.AdditionalIncludeDirectories]</NMakeIncludeSearchPath>
     <NMakeForcedIncludes>[options.ForcedIncludeFiles]</NMakeForcedIncludes>
-    <AdditionalOptions>[options.AdditionalOptions]</AdditionalOptions>
+    <AdditionalOptions>[options.IntellisenseCommandLineOptions]</AdditionalOptions>
   </PropertyGroup>
+  <ItemDefinitionGroup Condition=""'$(Configuration)|$(Platform)'=='[conf.Name]|[platformName]'"">
+    <NMakeCompile>
+      <NMakeCompileFileCommandLine>[conf.CustomBuildSettings.CompileFileCommand]</NMakeCompileFileCommandLine>
+    </NMakeCompile>
+  </ItemDefinitionGroup>
+";
+
+        private const string _projectConfigurationsNasmTemplate =
+    @"    <NASM>
+      <PreprocessorDefinitions>[EscapeXML:options.PreprocessorDefinitions];%(PreprocessorDefinitions);$(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <IncludePaths>[options.AdditionalAssemblyIncludeDirectories]</IncludePaths>
+      <Path>[ExePath]</Path>
+      <PreIncludeFiles>[PreIncludedFiles]</PreIncludeFiles>
+    </NASM>
 ";
     }
 }

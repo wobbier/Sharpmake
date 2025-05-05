@@ -14,16 +14,18 @@ namespace Sharpmake
             typeof(IFastBuildCompilerSettings),
             typeof(IPlatformBff),
             typeof(IClangPlatformBff),
+            typeof(IApplePlatformBff),
             typeof(IPlatformVcxproj),
             typeof(Project.Configuration.IConfigurationTasks))]
         public sealed partial class tvOsPlatform : BaseApplePlatform
         {
             public override Platform SharpmakePlatform => Platform.tvos;
 
-            #region IPlatformDescriptor implementation.
+            #region IPlatformDescriptor implementation
             public override string SimplePlatformString => "tvOS";
             #endregion
 
+            #region IPlatformBff implementation
             public override string BffPlatformDefine => "_TVOS";
 
             public override string CConfigName(Configuration conf)
@@ -36,11 +38,11 @@ namespace Sharpmake
                 return ".tvosppConfig";
             }
 
-            protected override void WriteCompilerExtraOptionsGeneral(IFileGenerator generator)
+            public override string SwiftConfigName(Configuration conf)
             {
-                base.WriteCompilerExtraOptionsGeneral(generator);
-                generator.Write(_compilerExtraOptionsGeneral);
+                return ".tvosswiftConfig";
             }
+            #endregion
 
             public override void SelectCompilerOptions(IGenerationContext context)
             {
@@ -52,13 +54,7 @@ namespace Sharpmake
 
                 // Sysroot
                 options["SDKRoot"] = "appletvos";
-                cmdLineOptions["SDKRoot"] = $"-isysroot {XCodeDeveloperFolder}/Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS.sdk";
-                Options.XCode.Compiler.SDKRoot customSdkRoot = Options.GetObject<Options.XCode.Compiler.SDKRoot>(conf);
-                if (customSdkRoot != null)
-                {
-                    options["SDKRoot"] = customSdkRoot.Value;
-                    cmdLineOptions["SDKRoot"] = $"-isysroot {customSdkRoot.Value}";
-                }
+                cmdLineOptions["SDKRoot"] = $"-isysroot {ApplePlatform.Settings.TVOSSDKPath}";
 
                 // Target
                 options["MacOSDeploymentTarget"] = FileGeneratorUtilities.RemoveLineTag;
@@ -69,32 +65,35 @@ namespace Sharpmake
                 if (tvosDeploymentTarget != null)
                 {
                     options["TvOSDeploymentTarget"] = tvosDeploymentTarget.MinimumVersion;
-                    cmdLineOptions["TvOSDeploymentTarget"] = $"-target arm64-apple-tvos{tvosDeploymentTarget.MinimumVersion}";
+                    string deploymentTarget = $"{GetDeploymentTargetPrefix(conf)}{tvosDeploymentTarget.MinimumVersion}";
+                    cmdLineOptions["DeploymentTarget"] = IsLinkerInvokedViaCompiler ? deploymentTarget : FileGeneratorUtilities.RemoveLineTag;
+                    cmdLineOptions["SwiftDeploymentTarget"] = deploymentTarget;
                 }
                 else
                 {
                     options["TvOSDeploymentTarget"] = FileGeneratorUtilities.RemoveLineTag;
-                    cmdLineOptions["TvOSDeploymentTarget"] = FileGeneratorUtilities.RemoveLineTag;
+                    cmdLineOptions["DeploymentTarget"] = FileGeneratorUtilities.RemoveLineTag;
+                    cmdLineOptions["SwiftDeploymentTarget"] = FileGeneratorUtilities.RemoveLineTag;
                 }
 
                 options["SupportsMaccatalyst"] = FileGeneratorUtilities.RemoveLineTag;
                 options["SupportsMacDesignedForIphoneIpad"] = FileGeneratorUtilities.RemoveLineTag;
 
+                #region infoplist keys
+                context.SelectOptionWithFallback(
+                    () => options["UIAppSupportsHDR"] = FileGeneratorUtilities.RemoveLineTag,
+                    Options.Option(Options.XCode.InfoPlist.UIAppSupportsHDR.Disable, () => options["UIAppSupportsHDR"] = "NO"),
+                    Options.Option(Options.XCode.InfoPlist.UIAppSupportsHDR.Enable, () => options["UIAppSupportsHDR"] = "YES")
+                );
+                #endregion // infoplist keys
             }
 
             public override void SelectLinkerOptions(IGenerationContext context)
             {
                 base.SelectLinkerOptions(context);
 
-                var options = context.Options;
-                var cmdLineOptions = context.CommandLineOptions;
-                var conf = context.Configuration;
-
                 // Sysroot
-                cmdLineOptions["SysLibRoot"] = $"-syslibroot {XCodeDeveloperFolder}/Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS.sdk";
-                Options.XCode.Compiler.SDKRoot customSdkRoot = Options.GetObject<Options.XCode.Compiler.SDKRoot>(conf);
-                if (customSdkRoot != null)
-                    cmdLineOptions["SysLibRoot"] = $"-isysroot {customSdkRoot.Value}";
+                SelectCustomSysLibRoot(context, ApplePlatform.Settings.TVOSSDKPath);
             }
         }
     }

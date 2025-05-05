@@ -13,14 +13,12 @@ namespace Sharpmake
     public class Strings : UniqueList<string>
     {
         public Strings(IEqualityComparer<string> hashComparer, IComparer<string> sortComparer)
-            : base(hashComparer)
+            : base(hashComparer, sortComparer)
         {
-            SortComparer = sortComparer;
         }
         public Strings()
-            : base(StringComparer.OrdinalIgnoreCase)
+            : base(StringComparer.OrdinalIgnoreCase, StringComparer.OrdinalIgnoreCase)
         {
-            SortComparer = StringComparer.OrdinalIgnoreCase;
         }
 
         public Strings(IEnumerable<string> other) : base(StringComparer.OrdinalIgnoreCase, other) { }
@@ -64,10 +62,20 @@ namespace Sharpmake
 
         public void InsertSuffix(string suffix, bool addOnlyIfAbsent)
         {
+            InsertSuffix(suffix, addOnlyIfAbsent, null);
+        }
+
+        public void InsertSuffix(string suffix, bool addOnlyIfAbsent, IEnumerable<string> additionalSuffixesToKeep)
+        {
             foreach (string value in Values)
             {
-                if (addOnlyIfAbsent && value.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+                if (addOnlyIfAbsent && 
+                        ( value.EndsWith(suffix, StringComparison.OrdinalIgnoreCase ) ||
+                        ( additionalSuffixesToKeep != null && additionalSuffixesToKeep.Any(suffixToKeep => value.EndsWith(suffixToKeep, StringComparison.OrdinalIgnoreCase)) ) )
+                    )
+                {
                     continue;
+                }
                 UpdateValue(value, value + suffix);
             }
         }
@@ -212,10 +220,23 @@ namespace Sharpmake
 
         public void InsertSuffix(string suffix, bool addOnlyIfAbsent)
         {
+            InsertSuffix(suffix, addOnlyIfAbsent, null);
+        }
+
+        public void InsertSuffix(string suffix, bool addOnlyIfAbsent, IEnumerable<string> additionalSuffixesToKeep)
+        {
             for (int i = 0; i < _list.Count; ++i)
             {
-                if (addOnlyIfAbsent && _list[i].StringValue.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+                string value = _list[i].StringValue;
+                if (addOnlyIfAbsent && 
+                        ( value.EndsWith(suffix, StringComparison.OrdinalIgnoreCase) || 
+                            ( additionalSuffixesToKeep != null && additionalSuffixesToKeep.Any(suffixToKeep => value.EndsWith(suffixToKeep, StringComparison.OrdinalIgnoreCase))
+                            )
+                        )
+                    )
+                {
                     continue;
+                }
                 _list[i] = new StringEntry(_list[i] + suffix, _list[i].OrderNumber);
             }
             _hashSet.Clear();

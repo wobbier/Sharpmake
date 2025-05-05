@@ -241,9 +241,15 @@ namespace Sharpmake.Generators.VisualStudio
             internal class ItemGroupItem : IComparable<ItemGroupItem>, IEquatable<ItemGroupItem>
             {
                 public string Include;
-                public string LinkFolder = string.Empty;
 
-                private bool IsLink { get { return Include.StartsWith("..", StringComparison.Ordinal); } }
+                // This property is used to decide if this object is a Link
+                // If LinkFolder is null, this item is in the project folder and is not a link
+                // If LinkFolder is empty, this item is in the project's SourceRootPath or RootPath folder
+                //      which are outside of the Project folder and is a link.
+                // If LinkedFolder is a file path, it's a link. 
+                public string LinkFolder = null;
+
+                private bool IsLink { get { return LinkFolder != null; } }
 
                 private string Link
                 {
@@ -1015,9 +1021,15 @@ namespace Sharpmake.Generators.VisualStudio
                 };
             }
 
+            [Obsolete("Use AddReference(TargetFramework, Reference) instead")]
             public void AddReference(DotNetFramework dotNetFramework, Reference reference)
             {
-                AddTargetFrameworksCondition(References, new TargetFramework(dotNetFramework), reference);
+                AddReference(new TargetFramework(dotNetFramework), reference);
+            }
+
+            public void AddReference(TargetFramework targetFramework, Reference reference)
+            {
+                AddTargetFrameworksCondition(References, targetFramework, reference);
             }
 
             public void AddPackageReference(TargetFramework targetFramework, ItemTemplate itemTemplate)
@@ -1157,7 +1169,7 @@ namespace Sharpmake.Generators.VisualStudio
                 if (conf.Output == Project.Configuration.OutputType.Dll)
                     throw new Error("OutputType for C# projects must be either DotNetClassLibrary, DotNetConsoleApp or DotNetWindowsApp");
 
-                string projectUniqueName = conf.Name + Util.GetPlatformString(conf.Platform, conf.Project, conf.Target);
+                string projectUniqueName = conf.Name + Util.GetToolchainPlatformString(conf.Platform, conf.Project, conf.Target);
 
                 configurationNameMapping[projectUniqueName] = conf;
 
@@ -1317,7 +1329,7 @@ namespace Sharpmake.Generators.VisualStudio
             using (resolver.NewScopedParameter("targetFrameworkVersionString", targetFrameworkVersionString))
             using (resolver.NewScopedParameter("projectTypeGuids", projectTypeGuids))
             using (resolver.NewScopedParameter("assemblyName", assemblyName))
-            using (resolver.NewScopedParameter("defaultPlatform", Util.GetPlatformString(project.DefaultPlatform ?? configurations[0].Platform, project, null)))
+            using (resolver.NewScopedParameter("defaultPlatform", Util.GetToolchainPlatformString(project.DefaultPlatform ?? configurations[0].Platform, project, null)))
             using (resolver.NewScopedParameter("netCoreEnableDefaultItems", netCoreEnableDefaultItems))
             using (resolver.NewScopedParameter("defaultItemExcludes", defaultItemExcludes))
             using (resolver.NewScopedParameter("GeneratedAssemblyConfigTemplate", generatedAssemblyConfigTemplate))
@@ -1421,10 +1433,13 @@ namespace Sharpmake.Generators.VisualStudio
                 uf.GenerateUserFile(_builder, project, _projectConfigurationList, generatedFiles, skipFiles);
             }
 
+            // In case we need to swap out dependencies, we'll cache them here
+            Dictionary<string, List<DotNetDependency>> swappedNamesToDependencies = null;
+
             // configuration general
             foreach (Project.Configuration conf in _projectConfigurationList)
             {
-                using (resolver.NewScopedParameter("platformName", Util.GetPlatformString(conf.Platform, conf.Project, conf.Target)))
+                using (resolver.NewScopedParameter("platformName", Util.GetToolchainPlatformString(conf.Platform, conf.Project, conf.Target)))
                 using (resolver.NewScopedParameter("conf", conf))
                 using (resolver.NewScopedParameter("project", project))
                 using (resolver.NewScopedParameter("targetFramework", GetTargetFrameworksString(projectFrameworksPerConf[conf])))
@@ -1432,7 +1447,10 @@ namespace Sharpmake.Generators.VisualStudio
                 using (resolver.NewScopedParameter("target", conf.Target))
                 using (resolver.NewScopedParameter("options", options[conf]))
                 {
+                    Write(Template.PropertyGroupWithConditionStart, writer, resolver);
                     Write(Template.Project.ProjectConfigurationsGeneral, writer, resolver);
+                    WriteProperties(conf.CustomProperties, writer, resolver);
+                    Write(VsProjCommon.Template.PropertyGroupEnd, writer, resolver);
                 }
 
                 foreach (var dependencies in new[] { conf.DotNetPublicDependencies, conf.DotNetPrivateDependencies })
@@ -1444,38 +1462,51 @@ namespace Sharpmake.Generators.VisualStudio
                         if (!Util.IsDotNet(dependencyConfiguration))
                             continue;
 
-                        string dependencyExtension = Util.GetProjectFileExtension(dependencyConfiguration);
-                        string projectFullFileNameWithExtension = Util.GetCapitalizedPath(dependencyConfiguration.ProjectFullFileName + dependencyExtension);
-                        string relativeToProjectFile = Util.PathGetRelative(_projectPathCapitalized,
-                                                                            projectFullFileNameWithExtension);
-
-                        // If dependency project is marked as [Compile], read the GUID from the project file
-                        if (dependencyConfiguration.Project.SharpmakeProjectType == Project.ProjectTypeAttribute.Compile && dependencyConfiguration.ProjectGuid == null)
-                            dependencyConfiguration.ProjectGuid = ReadGuidFromProjectFile(dependencyConfiguration);
-
-                        // FIXME : MsBuild does not seem to properly detect ReferenceOutputAssembly setting. 
-                        // It may try to recompile the project if the output file of the dependency is missing. 
-                        // To counter this, the CopyLocal field is forced to false for build-only dependencies. 
-                        bool isPrivate = project.DependenciesCopyLocal.HasFlag(Project.DependenciesCopyLocalTypes.ProjectReferences) && dependency.ReferenceOutputAssembly != false;
-
-                        string includeOutputGroupsInVsix = null;
-                        if (isPrivate && project.ProjectTypeGuids == CSharpProjectType.Vsix)
+                        if (dependency.ReferenceSwappedWithOutputAssembly)
                         {
-                            // Includes debug symbols of private (i.e. copy local) referenced projects in the VSIX.
-                            // This WILL override default values of <IncludeOutputGroupsInVSIX> and <IncludeOutputGroupsInVSIXLocalOnly> from Microsoft.VsSDK.targets,
-                            // so if the VSIXs stop working, this may be the cause...
-                            includeOutputGroupsInVsix = "DebugSymbolsProjectOutputGroup;BuiltProjectOutputGroup;BuiltProjectOutputGroupDependencies;GetCopyToOutputDirectoryItems;SatelliteDllsProjectOutputGroup";
+                            // cache swapped dependencies and sort them out later since we have no visibility here regarding
+                            // multiple frameworks or optimizations from within a single Project.Configuration
+                            // Note: even if preallocating looks tempting, the time it takes to count the entries is actually longer than the time resizing
+                            swappedNamesToDependencies ??= new Dictionary<string, List<DotNetDependency>>(StringComparer.Ordinal);
+                            if (!swappedNamesToDependencies.TryAdd(dependency.Configuration.AssemblyName, new List<DotNetDependency>{ dependency }))
+                            {
+                                swappedNamesToDependencies[dependency.Configuration.AssemblyName].Add(dependency);
+                            }
                         }
-
-                        itemGroups.ProjectReferences.Add(new ItemGroups.ProjectReference
+                        else
                         {
-                            Include = relativeToProjectFile,
-                            Name = dependencyConfiguration.ProjectName,
-                            Private = isPrivate,
-                            Project = new Guid(dependencyConfiguration.ProjectGuid),
-                            ReferenceOutputAssembly = dependency.ReferenceOutputAssembly,
-                            IncludeOutputGroupsInVSIX = includeOutputGroupsInVsix,
-                        });
+                            string dependencyExtension = Util.GetProjectFileExtension(dependencyConfiguration);
+                            string projectFullFileNameWithExtension = Util.GetCapitalizedPath(dependencyConfiguration.ProjectFullFileName + dependencyExtension);
+                            string relativeToProjectFile = Util.PathGetRelative(_projectPathCapitalized, projectFullFileNameWithExtension);
+
+                            // If dependency project is marked as [Compile], read the GUID from the project file
+                            if (dependencyConfiguration.Project.SharpmakeProjectType == Project.ProjectTypeAttribute.Compile && dependencyConfiguration.ProjectGuid == null)
+                                dependencyConfiguration.ProjectGuid = ReadGuidFromProjectFile(dependencyConfiguration);
+
+                            // FIXME : MsBuild does not seem to properly detect ReferenceOutputAssembly setting. 
+                            // It may try to recompile the project if the output file of the dependency is missing. 
+                            // To counter this, the CopyLocal field is forced to false for build-only dependencies. 
+                            bool isPrivate = project.DependenciesCopyLocal.HasFlag(Project.DependenciesCopyLocalTypes.ProjectReferences) && dependency.ReferenceOutputAssembly != false;
+
+                            string includeOutputGroupsInVsix = null;
+                            if (isPrivate && project.ProjectTypeGuids == CSharpProjectType.Vsix)
+                            {
+                                // Includes debug symbols of private (i.e. copy local) referenced projects in the VSIX.
+                                // This WILL override default values of <IncludeOutputGroupsInVSIX> and <IncludeOutputGroupsInVSIXLocalOnly> from Microsoft.VsSDK.targets,
+                                // so if the VSIXs stop working, this may be the cause...
+                                includeOutputGroupsInVsix = "DebugSymbolsProjectOutputGroup;BuiltProjectOutputGroup;BuiltProjectOutputGroupDependencies;GetCopyToOutputDirectoryItems;SatelliteDllsProjectOutputGroup";
+                            }
+
+                            itemGroups.ProjectReferences.Add(new ItemGroups.ProjectReference
+                            {
+                                Include = relativeToProjectFile,
+                                Name = dependencyConfiguration.ProjectName,
+                                Private = isPrivate,
+                                Project = new Guid(dependencyConfiguration.ProjectGuid),
+                                ReferenceOutputAssembly = dependency.ReferenceOutputAssembly,
+                                IncludeOutputGroupsInVSIX = includeOutputGroupsInVsix,
+                            });
+                        }
                     }
                 }
 
@@ -1498,6 +1529,28 @@ namespace Sharpmake.Generators.VisualStudio
                                              .ProjectReferences),
                         Project = projectGuid,
                     });
+                }
+            }
+            
+            if(swappedNamesToDependencies is not null)
+            {
+                foreach (List<DotNetDependency> groupedDependencies in swappedNamesToDependencies.Values)
+                {
+                    bool isMultiFramework = groupedDependencies.Select(d => d.Configuration.Target.GetFragment<DotNetFramework>()).Distinct().Count() > 1;
+
+                    foreach (var dependency in groupedDependencies.OrderByDescending(d => d.Configuration.Target.GetOptimization()))
+                    {
+                        TargetFramework targetFramework = GetTargetFramework(dependency.Configuration);
+                        string dllPath = Path.Combine(dependency.Configuration.TargetPath, $"{dependency.Configuration.AssemblyName}{dependency.Configuration.DllFullExtension}");
+                        var referencesByPath = new ItemGroups.Reference
+                        {
+                            Include = $"{dependency.Configuration.AssemblyName}{(isMultiFramework ? "-" + GetTargetFrameworksString(targetFramework) : "")}",
+                            SpecificVersion = false,
+                            HintPath = Util.PathGetRelative(_projectPathCapitalized, dllPath),
+                            Private = project.DependenciesCopyLocal.HasFlag(Project.DependenciesCopyLocalTypes.ExternalReferences),
+                        };
+                        itemGroups.AddReference(targetFramework, referencesByPath);
+                    }
                 }
             }
 
@@ -1694,19 +1747,30 @@ namespace Sharpmake.Generators.VisualStudio
             }
         }
 
-        // TODO: remove this and use Sharpmake.Generators.VisualStudio.VsProjCommon.WriteCustomProperties instead
+        /// TODO: remove this and use <see cref="VsProjCommon.WriteCustomProperties"/> instead. Note <see cref="CSproj"/> should be migrated to  <see cref="IFileGenerator"/>
         private static void WriteCustomProperties(Dictionary<string, string> customProperties, Project project, StreamWriter writer, Resolver resolver)
         {
             if (customProperties.Any())
             {
-                Write(Template.CustomPropertiesStart, writer, resolver);
-                foreach (var kvp in customProperties)
+                Write(VsProjCommon.Template.PropertyGroupStart, writer, resolver);
+                WriteProperties(customProperties, writer, resolver);
+                Write(VsProjCommon.Template.PropertyGroupEnd, writer, resolver);
+            }
+        }
+
+        private static void WriteProperties(
+            Dictionary<string, string> props,
+            StreamWriter writer, 
+            Resolver resolver
+        )
+        {
+            foreach (KeyValuePair<string, string> kvp in props)
+            {
+                using (resolver.NewScopedParameter("custompropertyname", kvp.Key))
+                using (resolver.NewScopedParameter("custompropertyvalue", kvp.Value))
                 {
-                    resolver.SetParameter("custompropertyname", kvp.Key);
-                    resolver.SetParameter("custompropertyvalue", kvp.Value);
-                    Write(Template.CustomProperty, writer, resolver);
+                    Write(VsProjCommon.Template.CustomProperty, writer, resolver);
                 }
-                Write(Template.CustomPropertiesEnd, writer, resolver);
             }
         }
 
@@ -2267,30 +2331,18 @@ namespace Sharpmake.Generators.VisualStudio
                                         ? "TextTemplatingFilePreprocessor"
                                         : "TextTemplatingFileGenerator";
 
-                //Add the generated file if its in the remaining files.
-                bool generatedFileFound = remainingSourcesFiles.Concat(remainingResourcesFiles)
-                    .Concat(remainingEmbeddedResourcesFiles)
-                    .Concat(remainingNoneFiles).Contains(generatedFile);
-                AddContentGeneratedItem(itemGroups, ttFile, generatedFile, generator, false, _projectPathCapitalized, project, generatedFileFound);
-
+                // Always include files generated by text templating (.tt), even if they don't exist yet.
+                // These files are expected to be absent during a clean build, as they are generated
+                // during the build process. Therefore, they cannot be left out of the csproj file.
+                AddContentGeneratedItem(itemGroups, ttFile, generatedFile, generator, false, _projectPathCapitalized, project);
 
                 remainingNoneFiles.Remove(ttFile);
-                if (generatedFileFound)
-                {
-                    //Remove generated file wherever it is.
-                    remainingEmbeddedResourcesFiles.Remove(generatedFile);
-                    remainingResourcesFiles.Remove(generatedFile);
-                    remainingSourcesFiles.Remove(generatedFile);
-                    remainingNoneFiles.Remove(generatedFile);
-                    resolvedNoneFilesAddIfNewer.Remove(generatedFile);
-                }
-                else
-                {
-                    _builder.LogWarningLine(
-                        @"Warning: The generated file {0} for template file {1} is not found. Please generate and submit the file using Visual Studio.",
-                        generatedFile,
-                        ttFile);
-                }
+                //Remove generated file wherever it is.
+                remainingEmbeddedResourcesFiles.Remove(generatedFile);
+                remainingResourcesFiles.Remove(generatedFile);
+                remainingSourcesFiles.Remove(generatedFile);
+                remainingNoneFiles.Remove(generatedFile);
+                resolvedNoneFilesAddIfNewer.Remove(generatedFile);
             }
 
             //xaml files
@@ -2372,7 +2424,7 @@ namespace Sharpmake.Generators.VisualStudio
                             Include = str,
                             Private = project.DependenciesCopyLocal.HasFlag(Project.DependenciesCopyLocalTypes.DotNetReferences) ? default(bool?) : false,
                         };
-                        itemGroups.AddReference(dotNetFramework, referencesByName);
+                        itemGroups.AddReference(GetTargetFramework(conf), referencesByName);
                     }
                 }
             }
@@ -2387,7 +2439,7 @@ namespace Sharpmake.Generators.VisualStudio
                         Include = str,
                         Private = project.DependenciesCopyLocal.HasFlag(Project.DependenciesCopyLocalTypes.DotNetExtensions),
                     };
-                    itemGroups.AddReference(dotNetFramework, referencesByNameExternal);
+                    itemGroups.AddReference(GetTargetFramework(conf), referencesByNameExternal);
                 }
             }
 
@@ -2403,7 +2455,7 @@ namespace Sharpmake.Generators.VisualStudio
                         HintPath = Util.PathGetRelative(_projectPathCapitalized, str),
                         Private = project.DependenciesCopyLocal.HasFlag(Project.DependenciesCopyLocalTypes.ExternalReferences),
                     };
-                    itemGroups.AddReference(dotNetFramework, referencesByPath);
+                    itemGroups.AddReference(GetTargetFramework(conf), referencesByPath);
                 }
 
                 foreach (var str in project.AdditionalEmbeddedAssemblies.Select(Util.GetCapitalizedPath))
@@ -2415,7 +2467,7 @@ namespace Sharpmake.Generators.VisualStudio
                         HintPath = Util.PathGetRelative(_projectPathCapitalized, str),
                         Private = false
                     };
-                    itemGroups.AddReference(dotNetFramework, referencesByPath);
+                    itemGroups.AddReference(GetTargetFramework(conf), referencesByPath);
                 }
             }
 
@@ -2427,7 +2479,7 @@ namespace Sharpmake.Generators.VisualStudio
                     foreach (var r in conf.DotNetReferences)
                     {
                         var references = GetItemGroupsReference(r, project.DependenciesCopyLocal);
-                        itemGroups.AddReference(dotNetFramework, references);
+                        itemGroups.AddReference(GetTargetFramework(conf), references);
                     }
                 }
             }
@@ -2627,7 +2679,7 @@ namespace Sharpmake.Generators.VisualStudio
                             dotNetHint = dnfs.ToFolderName();
                         }
                         string hintPath = Path.Combine("$(SolutionDir)packages", references.Name + "." + references.Version, "lib", dotNetHint, references.Name + ".dll");
-                        itemGroups.AddReference(targetFramework.DotNetFramework, new ItemGroups.Reference { Include = references.Name, HintPath = hintPath });
+                        itemGroups.AddReference(targetFramework, new ItemGroups.Reference { Include = references.Name, HintPath = hintPath });
                     }
                 }
             }
@@ -2670,8 +2722,7 @@ namespace Sharpmake.Generators.VisualStudio
             string generator,
             bool designTimeSharedInput,
             string projectPath,
-            CSharpProject project,
-            bool addGeneratedFile)
+            CSharpProject project)
         {
             Trace.Assert(!string.IsNullOrEmpty(templateFile) && !string.IsNullOrEmpty(generatedFile));
             itemGroups.Contents.Add(new ItemGroups.Content
@@ -2682,8 +2733,6 @@ namespace Sharpmake.Generators.VisualStudio
                 LinkFolder = GetProjectLinkedFolder(templateFile, projectPath, project)
             });
 
-            if (!addGeneratedFile)
-                return;
             var generatedFileExtension = Path.GetExtension(generatedFile).ToLower();
 
             //TODO Give some kind of additional TT directive to specify the build action directly?
@@ -2825,22 +2874,53 @@ namespace Sharpmake.Generators.VisualStudio
             return FileAssociationType.Unknown;
         }
 
-        private static string GetProjectLinkedFolder(string sourceFile, string projectPath, Project project)
+        /// <summary>
+        /// Gets a string meant to be used as a ItemGroupItem.LinkedFolder. This property controlls how the items get organised
+        /// in the Solution Explorer in Visual Studio, otherwise known as filters. 
+        /// 
+        /// For relative paths, a filter is created by removing any "traverse parent folder" (../) elements from the beginning 
+        /// of the path and using the remaining folder structure. 
+        /// 
+        /// For absolute paths, the drive letter is removed and the remaining folder structuer is used. 
+        /// </summary>
+        /// <param name="sourceFile">Path to the ItemGroupItem's file.</param>
+        /// <param name="projectPath">Path to the folder in which the project file will be located.</param>
+        /// <param name="project">The Project which the ItemGroupItem is a part of.</param>
+        /// <returns>Returns null if the file is in or under the projectPath, meaning it's within the project's influencec and is not a link.
+        /// Return empty string if the file is in the project.SourceRootPath or project.RootPath, not under it
+        /// Returns a valid filter resembling a folder structure in any other case. 
+        /// </returns>
+        internal static string GetProjectLinkedFolder(string sourceFile, string projectPath, Project project)
         {
-            // Exit out early if the file is not a relative path.
-            if (!sourceFile.StartsWith("..", StringComparison.Ordinal))
-                return string.Empty;
-
+            // file is under the influence of the project and has no LinkFolder
+            if (Util.PathIsUnderRoot(projectPath, sourceFile))
+                return null;
+            
             string absoluteFile = Util.PathGetAbsolute(projectPath, sourceFile);
-
             var directoryName = Path.GetDirectoryName(absoluteFile);
-            if (directoryName.StartsWith(project.SourceRootPath, StringComparison.OrdinalIgnoreCase))
+
+            // for files under SourceRootPath or RootPath, we use the subfolder structure 
+            if (Util.PathIsUnderRoot(project.SourceRootPath, directoryName))
                 return directoryName.Substring(project.SourceRootPath.Length).Trim(Util._pathSeparators);
 
-            if (directoryName.StartsWith(project.RootPath))
+            if (Util.PathIsUnderRoot(project.RootPath, directoryName))
                 return directoryName.Substring(project.RootPath.Length).Trim(Util._pathSeparators);
+            
+            // Files outside all three project folders with and aboslute path use the
+            // entire folder structure without the drive letter as filter
+            if (Path.IsPathFullyQualified(sourceFile))
+            {
+                var root = Path.GetPathRoot(directoryName);
+                return directoryName.Substring(root.Length).Trim(Util._pathSeparators);
+            }
 
-            return Path.GetFileName(directoryName);
+            // Files outside all three project folders with relative paths use their
+            // relative path with all the leading "traverse parent folder" (../) removed
+            // Example: "../../project/source/" becomes "project/source/"
+            var trimmedPath = Util.TrimAllLeadingDotDot(sourceFile);
+            var fileName = Path.GetFileName(absoluteFile);
+
+            return trimmedPath.Substring(0, trimmedPath.Length - fileName.Length).Trim(Util._pathSeparators);
         }
 
         private void WriteEvents(Dictionary<Project.Configuration, Options.ExplicitOptions> options, StreamWriter writer, Resolver resolver)
@@ -2862,7 +2942,7 @@ namespace Sharpmake.Generators.VisualStudio
 
         private void WriteEvents(Project.Configuration conf, Options.ExplicitOptions options, bool conditional, StreamWriter writer, Resolver resolver)
         {
-            using (resolver.NewScopedParameter("platformName", Util.GetPlatformString(conf.Platform, conf.Project, conf.Target)))
+            using (resolver.NewScopedParameter("platformName", Util.GetToolchainPlatformString(conf.Platform, conf.Project, conf.Target)))
             using (resolver.NewScopedParameter("conf", conf))
             using (resolver.NewScopedParameter("options", options))
             {
@@ -3287,7 +3367,7 @@ namespace Sharpmake.Generators.VisualStudio
             Options.Option(Options.CSharp.DebugType.Pdbonly, () => { options["DebugType"] = "pdbonly"; }),
             Options.Option(Options.CSharp.DebugType.Portable, () => { options["DebugType"] = "portable"; }),
             Options.Option(Options.CSharp.DebugType.Embedded, () => { options["DebugType"] = "embedded"; }),
-            Options.Option(Options.CSharp.DebugType.None, () => { options["DebugType"] = RemoveLineTag; })
+            Options.Option(Options.CSharp.DebugType.None, () => { options["DebugType"] = "none"; })
             );
 
             SelectOption
@@ -3350,7 +3430,10 @@ namespace Sharpmake.Generators.VisualStudio
             Options.Option(Options.CSharp.LanguageVersion.CSharp7_3, () => { options["LanguageVersion"] = "7.3"; }),
             Options.Option(Options.CSharp.LanguageVersion.CSharp8, () => { options["LanguageVersion"] = "8.0"; }),
             Options.Option(Options.CSharp.LanguageVersion.CSharp9, () => { options["LanguageVersion"] = "9.0"; }),
-            Options.Option(Options.CSharp.LanguageVersion.CSharp10, () => { options["LanguageVersion"] = "10.0"; })
+            Options.Option(Options.CSharp.LanguageVersion.CSharp10, () => { options["LanguageVersion"] = "10.0"; }),
+            Options.Option(Options.CSharp.LanguageVersion.CSharp11, () => { options["LanguageVersion"] = "11.0"; }),
+            Options.Option(Options.CSharp.LanguageVersion.CSharp12, () => { options["LanguageVersion"] = "12.0"; }),
+            Options.Option(Options.CSharp.LanguageVersion.CSharp13, () => { options["LanguageVersion"] = "13.0"; })
             );
 
             SelectOption(
@@ -3596,6 +3679,12 @@ namespace Sharpmake.Generators.VisualStudio
                 Options.Option(Options.CSharp.UseWpf.Enabled, () => { options["UseWpf"] = "true"; }),
                 Options.Option(Options.CSharp.UseWpf.Disabled, () => { options["UseWpf"] = RemoveLineTag; })
             );
+
+            SelectOption
+           (
+               Options.Option(Options.CSharp.PublishAot.Enabled, () => { options["PublishAot"] = "true"; }),
+               Options.Option(Options.CSharp.PublishAot.Disabled, () => { options["PublishAot"] = RemoveLineTag; })
+           );
 
             SelectOption
             (

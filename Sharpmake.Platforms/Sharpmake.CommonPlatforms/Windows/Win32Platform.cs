@@ -19,6 +19,7 @@ namespace Sharpmake
         {
             #region IPlatformDescriptor implementation
             public override string SimplePlatformString => "Win32";
+            public override string GetToolchainPlatformString(ITarget target) => "Win32";
             #endregion
 
             #region IPlatformVcxproj implementation
@@ -35,6 +36,7 @@ namespace Sharpmake
             {
                 context.Options["TargetMachine"] = "MachineX86";
                 context.CommandLineOptions["TargetMachine"] = "/MACHINE:X86";
+                context.CommandLineOptions["NasmCompilerFormat"] = "-fwin32";
             }
 
             public override void SelectPlatformAdditionalDependenciesOptions(IGenerationContext context)

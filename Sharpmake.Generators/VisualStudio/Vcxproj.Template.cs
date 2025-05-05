@@ -133,6 +133,11 @@ namespace Sharpmake.Generators.VisualStudio
 @"    <Import Project=""[vcTargetsPath]\BuildCustomizations\masm.props"" />
 ";
 
+                public static string ProjectImportedNasmProps =
+@"    <Import Project=""[importedNasmPropsFile]"" />
+";
+
+
                 public static string ProjectConfigurationImportedProps =
 @"    <Import Project=""[importedPropsFile]"" Condition=""'$(Configuration)|$(Platform)'=='[conf.Name]|[platformName]'"" />
 ";
@@ -173,18 +178,23 @@ namespace Sharpmake.Generators.VisualStudio
 @"    <Import Project=""[vcTargetsPath]\BuildCustomizations\masm.targets"" />
 ";
 
+                public static string ProjectNasmTargetsItem =
+@"    <Import Project=""[importedNasmTargetsFile]"" />
+";
+
                 public static string ProjectConfigurationImportedTargets =
 @"    <Import Project=""[importedTargetsFile]"" Condition=""'$(Configuration)|$(Platform)'=='[conf.Name]|[platformName]'"" />
 ";
 
                 // Support both regular and native package types, whichever happens to exist
-                public static string ProjectTargetsNugetReferenceImport =
-@"    <Import Project=""$(SolutionDir)\packages\[packageName].[packageVersion]\build\[packageName].targets"" Condition=""Exists('$(SolutionDir)\packages\[packageName].[packageVersion]\build\[packageName].targets')"" />
-    <Import Project=""$(SolutionDir)\packages\[packageName].[packageVersion]\build\native\[packageName].targets"" Condition=""Exists('$(SolutionDir)\packages\[packageName].[packageVersion]\build\native\[packageName].targets')"" />
+                // possible file extension: .targets and .props
+                public static string ProjectNugetReferenceImport =
+@"    <Import Project=""$(SolutionDir)\packages\[packageName].[packageVersion]\build\native\[packageName].[fileExtension]"" Condition=""Exists('$(SolutionDir)\packages\[packageName].[packageVersion]\build\native\[packageName].[fileExtension]')"" />
+    <Import Project=""$(SolutionDir)\packages\[packageName].[packageVersion]\build\[packageName].[fileExtension]"" Condition=""!Exists('$(SolutionDir)\packages\[packageName].[packageVersion]\build\native\[packageName].[fileExtension]') and Exists('$(SolutionDir)\packages\[packageName].[packageVersion]\build\[packageName].[fileExtension]')"" />
 ";
 
-                public static string ProjectTargetsNugetReferenceError =
-@"    <Error Condition=""!Exists('$(SolutionDir)\packages\[packageName].[packageVersion]\build\[packageName].targets') and !Exists('$(SolutionDir)\packages\[packageName].[packageVersion]\build\native\[packageName].targets')"" Text=""$([[System.String]]::Format('$(ErrorText)', '$(SolutionDir)\packages\[packageName].[packageVersion]\build\native\[packageName].targets'))"" />
+                public static string ProjectNugetReferenceError =
+@"    <Error Condition=""!Exists('$(SolutionDir)\packages\[packageName].[packageVersion]\build\[packageName].[fileExtension]') and !Exists('$(SolutionDir)\packages\[packageName].[packageVersion]\build\native\[packageName].[fileExtension]')"" Text=""$([[System.String]]::Format('$(ErrorText)', '$(SolutionDir)\packages\[packageName].[packageVersion]\build\native\[packageName].[fileExtension]'))"" />
 ";
 
                 public static string ProjectTargetsEnd =
@@ -192,7 +202,7 @@ namespace Sharpmake.Generators.VisualStudio
 ";
 
                 public static string ProjectCustomTargetsBegin =
-@"  <Target Name=""name"" BeforeTargets=""PrepareForBuild"">
+@"  <Target Name=""[targetName]"" BeforeTargets=""[beforeTargets]"">
 ";
 
                 public static string ProjectCustomTargetsEnd =
@@ -270,31 +280,31 @@ namespace Sharpmake.Generators.VisualStudio
 ";
 
                 public static string ProjectFilesHeader =
-                @"    <ClInclude Include=""[file.FileNameProjectRelative]"" />
+                @"    <ClInclude Include=""[file.FilePath]"" />
 ";
 
                 public static string ProjectFilesNatvis =
-                @"    <Natvis Include=""[file.FileNameProjectRelative]"" />
+                @"    <Natvis Include=""[file.FilePath]"" />
 ";
 
                 public static string ProjectFilesSourceBegin =
-                @"    <ClCompile Include=""[file.FileNameProjectRelative]""";
+                @"    <ClCompile Include=""[file.FilePath]""";
 
                 public static string ProjectFilesResourceBegin =
-                @"    <ResourceCompile Include=""[file.FileNameProjectRelative]""";
+                @"    <ResourceCompile Include=""[file.FilePath]""";
 
                 public static string ProjectFilesPRIResources =
-                @"    <PRIResource Include=""[file.FileNameProjectRelative]"">
+                @"    <PRIResource Include=""[file.FilePath]"">
       <FileType>Document</FileType>
     </PRIResource>
 ";
 
                 public static string ProjectFilesNone =
-                @"    <None Include=""[file.FileNameProjectRelative]"" />
+                @"    <None Include=""[file.FilePath]"" />
 ";
 
                 public static string ProjectFilesCustomSourceBegin =
-                @"    <[type] Include=""[file.FileNameProjectRelative]""";
+                @"    <[type] Include=""[file.FilePath]""";
 
 
                 public static string ProjectFilesResourceEnd =
@@ -324,6 +334,10 @@ namespace Sharpmake.Generators.VisualStudio
 
                 public static string ProjectFilesCustomBuildLinkObject =
 @"      <LinkObjects Condition=""'$(Configuration)|$(Platform)'=='[conf.Name]|[platformName]'"">[linkobjects]</LinkObjects>
+";
+
+                public static string ProjectFilesCustomBuildOutputItemType =
+@"      <OutputItemType>[outputItemType]</OutputItemType>
 ";
 
                 public static string ProjectFilesCustomBuildEnd =
@@ -478,11 +492,11 @@ namespace Sharpmake.Generators.VisualStudio
 @"</Project>";
 
                     public static string FileNoFilter =
-@"    <[type] Include=""[file.FileNameProjectRelative]"" />
+@"    <[type] Include=""[file.FilePath]"" />
 ";
 
                     public static string FileWithFilter =
-@"    <[type] Include=""[file.FileNameProjectRelative]"">
+@"    <[type] Include=""[file.FilePath]"">
       <Filter>[file.FilterPath]</Filter>
     </[type]>
 ";

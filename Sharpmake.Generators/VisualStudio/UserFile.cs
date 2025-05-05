@@ -48,7 +48,7 @@ namespace Sharpmake.Generators.VisualStudio
                     }
                     overwriteFile &= overwriteFileConfig;
 
-                    using (fileGenerator.Declare("platformName", Util.GetPlatformString(conf.Platform, conf.Project, conf.Target)))
+                    using (fileGenerator.Declare("platformName", Util.GetToolchainPlatformString(conf.Platform, conf.Project, conf.Target)))
                     using (fileGenerator.Declare("conf", conf))
                     using (fileGenerator.Declare("project", project))
                     {
@@ -70,9 +70,15 @@ namespace Sharpmake.Generators.VisualStudio
                 // unless the UserProjSettings specifies to overwrite
                 bool shouldWrite = !userFileInfo.Exists || overwriteFile;
                 if (shouldWrite && builder.Context.WriteGeneratedFile(project.GetType(), userFileInfo, fileGenerator))
+                {
                     generatedFiles.Add(userFileInfo.FullName);
+                }
                 else
+                {
+                    // prevent deletion of skipped files.
+                    Util.RecordInAutoCleanupDatabase(userFileInfo.FullName);
                     skipFiles.Add(userFileInfo.FullName);
+                }
             }
         }
 

@@ -22,12 +22,12 @@ namespace Sharpmake
             typeof(Project.Configuration.IConfigurationTasks))]
         public sealed partial class AndroidAgdePlatform : BasePlatform, Project.Configuration.IConfigurationTasks, IFastBuildCompilerSettings, IClangPlatformBff
         {
-            #region IPlatformDescriptor implementation.
+            #region IPlatformDescriptor implementation
             public override string SimplePlatformString => "Agde";
-            public override string GetPlatformString(ITarget target)
+
+            public override string GetToolchainPlatformString(ITarget target)
             {
-                if (target == null)
-                    return SimplePlatformString;
+                ArgumentNullException.ThrowIfNull(target);
 
                 var buildTarget = target.GetFragment<AndroidBuildTargets>();
                 switch (buildTarget)
@@ -41,7 +41,7 @@ namespace Sharpmake
                     case AndroidBuildTargets.x86_64:
                         return "Android-x86_64";
                     default:
-                        throw new System.Exception(string.Format("Unsupported Android architecture: {0}", buildTarget));
+                        throw new Exception(string.Format("Unsupported Android AGDE architecture: {0}", buildTarget));
                 }
             }
 
@@ -171,19 +171,6 @@ namespace Sharpmake
                 generator.Write(Vcxproj.Template.Project.ProjectDescriptionEnd);
             }
 
-            public override void GenerateProjectPlatformSdkDirectoryDescription(IVcxprojGenerationContext context, IFileGenerator generator)
-            {
-                base.GenerateProjectPlatformSdkDirectoryDescription(context, generator);
-
-                var devEnv = context.DevelopmentEnvironmentsRange.MinDevEnv;
-                if (devEnv.IsVisualStudio() && devEnv >= DevEnv.vs2019)
-                {
-                    string additionalVCTargetsPath = MSBuildGlobalSettings.GetAdditionalVCTargetsPath(devEnv, Platform.agde);
-                    if (!string.IsNullOrEmpty(additionalVCTargetsPath))
-                        generator.WriteVerbatim(_projectPropertySheets);
-                }
-            }
-
             public override void GenerateProjectCompileVcxproj(IVcxprojGenerationContext context, IFileGenerator generator)
             {
                 generator.Write(_projectConfigurationsCompileTemplate);
@@ -244,6 +231,13 @@ namespace Sharpmake
                 if (conf.Output.Equals(Project.Configuration.OutputType.Exe))
                 {
                     options["AndroidEnablePackaging"] = "true";
+
+                    context.SelectOption
+                    (
+                        Options.Option(Options.Agde.General.AndroidGradlePackaging.Enable, () => { options["SkipAndroidPackaging"] = "false"; }),
+                        Options.Option(Options.Agde.General.AndroidGradlePackaging.Disable, () => { options["SkipAndroidPackaging"] = "true"; })
+                    );
+
                     string option = Options.StringOption.Get<Options.Agde.General.AndroidApplicationModule>(conf);
                     options["AndroidApplicationModule"] = option != RemoveLineTag ? option : context.Project.Name.ToLowerInvariant();
 
@@ -253,6 +247,9 @@ namespace Sharpmake
 
                     option = Options.StringOption.Get<Options.Agde.General.AndroidApkName>(conf);
                     options["AndroidApkName"] = option != RemoveLineTag ? option : @"$(RootNamespace)-$(PlatformTarget).apk";
+
+                    option = Options.StringOption.Get<Options.Agde.General.AndroidGradlePackageOutputName>(conf);
+                    options["AndroidGradlePackageOutputName"] = option != RemoveLineTag ? option : @"$(AndroidApkName)";
 
                     option = Options.GetObject<Options.Agde.General.AndroidApkLocation>(conf)?.Path ?? RemoveLineTag;
                     options["AndroidApkLocation"] = option;
@@ -266,11 +263,13 @@ namespace Sharpmake
                 else
                 {
                     options["AndroidEnablePackaging"] = RemoveLineTag;
+                    options["SkipAndroidPackaging"] = RemoveLineTag;
                     options["AndroidApplicationModule"] = RemoveLineTag;
                     options["AndroidGradleBuildDir"] = RemoveLineTag;
                     options["AndroidGradleBuildIntermediateDir"] = RemoveLineTag;
                     options["AndroidExtraGradleArgs"] = RemoveLineTag;
                     options["AndroidApkName"] = RemoveLineTag;
+                    options["AndroidGradlePackageOutputName"] = RemoveLineTag;
                     options["AndroidApkLocation"] = RemoveLineTag;
                     options["AndroidPostApkInstallCommands"] = RemoveLineTag;
                     options["AndroidPreApkInstallCommands"] = RemoveLineTag;
@@ -322,6 +321,10 @@ namespace Sharpmake
 
                     AndroidBuildTargets androidBuildtarget = Android.Util.GetAndroidBuildTarget(conf);
                     cmdLineOptions["ClangCompilerTarget"] = $"-target {Android.Util.GetTargetTripleWithVersionSuffix(androidBuildtarget, androidApiNum)}";
+                }
+                else
+                {
+                    cmdLineOptions["ClangCompilerTarget"] = RemoveLineTag;
                 }
 
                 context.SelectOptionWithFallback
@@ -399,12 +402,14 @@ namespace Sharpmake
                 Options.Option(Options.Agde.Compiler.CppLanguageStandard.Cpp14, () => { options["CppLanguageStandard"] = "cpp14"; cmdLineOptions["CppLanguageStd"] = "-std=c++14"; }),
                 Options.Option(Options.Agde.Compiler.CppLanguageStandard.Cpp1z, () => { options["CppLanguageStandard"] = "cpp1z"; cmdLineOptions["CppLanguageStd"] = "-std=c++1z"; }),
                 Options.Option(Options.Agde.Compiler.CppLanguageStandard.Cpp17, () => { options["CppLanguageStandard"] = "cpp17"; cmdLineOptions["CppLanguageStd"] = "-std=c++17"; }),
+                Options.Option(Options.Agde.Compiler.CppLanguageStandard.Cpp20, () => { options["CppLanguageStandard"] = "cpp20"; cmdLineOptions["CppLanguageStd"] = "-std=c++20"; }),
                 Options.Option(Options.Agde.Compiler.CppLanguageStandard.Gnupp98, () => { options["CppLanguageStandard"] = "gnupp98"; cmdLineOptions["CppLanguageStd"] = "-std=gnu++98"; }),
                 Options.Option(Options.Agde.Compiler.CppLanguageStandard.Gnupp03, () => { options["CppLanguageStandard"] = "gnupp03"; cmdLineOptions["CppLanguageStd"] = "-std=gnu++03"; }),
                 Options.Option(Options.Agde.Compiler.CppLanguageStandard.Gnupp11, () => { options["CppLanguageStandard"] = "gnupp11"; cmdLineOptions["CppLanguageStd"] = "-std=gnu++11"; }),
                 Options.Option(Options.Agde.Compiler.CppLanguageStandard.Gnupp14, () => { options["CppLanguageStandard"] = "gnupp14"; cmdLineOptions["CppLanguageStd"] = "-std=gnu++14"; }),
                 Options.Option(Options.Agde.Compiler.CppLanguageStandard.Gnupp1z, () => { options["CppLanguageStandard"] = "gnupp1z"; cmdLineOptions["CppLanguageStd"] = "-std=gnu++1z"; }),
-                Options.Option(Options.Agde.Compiler.CppLanguageStandard.Gnupp17, () => { options["CppLanguageStandard"] = "gnupp17"; cmdLineOptions["CppLanguageStd"] = "-std=gnu++17"; })
+                Options.Option(Options.Agde.Compiler.CppLanguageStandard.Gnupp17, () => { options["CppLanguageStandard"] = "gnupp17"; cmdLineOptions["CppLanguageStd"] = "-std=gnu++17"; }),
+                Options.Option(Options.Agde.Compiler.CppLanguageStandard.Gnupp20, () => { options["CppLanguageStandard"] = "gnupp20"; cmdLineOptions["CppLanguageStd"] = "-std=gnu++20"; })
                 );
 
                 context.SelectOption
@@ -484,8 +489,9 @@ namespace Sharpmake
 
                 context.SelectOption
                 (
-                Options.Option(Options.Agde.Compiler.MultiProcessorCompilation.Enable, () => { options["UseMultiToolTask"] = "true"; }),
-                Options.Option(Options.Agde.Compiler.MultiProcessorCompilation.Disable, () => { options["UseMultiToolTask"] = "false"; })
+                Options.Option(Options.Agde.Compiler.NativeBuildBackend.MultiToolTaskMSBuild, () => { options["NativeBuildBackend"] = "MultiToolTaskMSBuild"; }),
+                Options.Option(Options.Agde.Compiler.NativeBuildBackend.OriginalMSBuild, () => { options["NativeBuildBackend"] = "OriginalMSBuild"; }),
+                Options.Option(Options.Agde.Compiler.NativeBuildBackend.Ninja, () => { options["NativeBuildBackend"] = "Ninja"; })
                 );
 
                 context.SelectOption
@@ -606,11 +612,12 @@ namespace Sharpmake
                 ));
             }
 
-            public override void SetupPlatformLibraryOptions(ref string platformLibExtension, ref string platformOutputLibExtension, ref string platformPrefixExtension)
+            public override void SetupPlatformLibraryOptions(out string platformLibExtension, out string platformOutputLibExtension, out string platformPrefixExtension, out string platformLibPrefix)
             {
                 platformLibExtension = ".a";
-                platformOutputLibExtension = string.Empty;
+                platformOutputLibExtension = StaticLibraryFileFullExtension;
                 platformPrefixExtension = "-l:";
+                platformLibPrefix = "lib";
             }
 
             protected override IEnumerable<string> GetIncludePathsImpl(IGenerationContext context)
@@ -707,7 +714,7 @@ namespace Sharpmake
                 var target = conf.Target;
                 var devEnv = target.GetFragment<DevEnv>();
 
-                string compilerName = string.Join("-", "Compiler", GetPlatformString(target), devEnv, SimplePlatformString);
+                string compilerName = string.Join("-", "Compiler", GetToolchainPlatformString(target), devEnv, SimplePlatformString);
                 string CompilerSettingsName = compilerName;
                 string CCompilerSettingsName = $"C-{compilerName}";
 
