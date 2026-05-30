@@ -66,6 +66,9 @@ Settings
     .ConcurrencyPerJobMiB = [fastBuildConcurrencyPerJobMiB]
 ]
 ";
+                public static string AllowCaching = @"
+    .AllowCaching = [fastBuildAllowCaching]
+";
 
                 public const string WinEnvironment =
 @"    #import TMP
@@ -353,6 +356,7 @@ Compiler( '[fastBuildNasmCompilerName]' )
                 public static string LibrarianOptionsClang = @"
     .LibrarianOutput        = '[fastBuildOutputFile]'
     .LibrarianOptions       = 'rcs[cmdLineOptions.UseThinArchives] ""%2"" ""%1""'
+                            + ' [options.AdditionalLibrarianOptions]'
 
 ";
 

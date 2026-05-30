@@ -40,15 +40,14 @@ namespace Sharpmake
         vs2022 = 1 << 6,
 
         /// <summary>
+        /// Visual Studio 2026
+        /// </summary>
+        vs2026 = 1 << 10,
+
+        /// <summary>
         /// Xcode projects
         /// </summary>
         xcode = 1 << 7,
-
-        /// <summary>
-        /// iOS project with Xcode [deprecated]
-        /// </summary>
-        [Obsolete("xcode4ios has been deprecated, please use 'xcode'", error: true)]
-        xcode4ios = 1 << 7,
 
         /// <summary>
         /// Eclipse.
@@ -64,7 +63,7 @@ namespace Sharpmake
         /// All supported Visual Studio versions.
         /// </summary>
         [CompositeFragment]
-        VisualStudio = vs2015 | vs2017 | vs2019 | vs2022,
+        VisualStudio = vs2015 | vs2017 | vs2019 | vs2022 | vs2026,
 
         [Obsolete("Sharpmake doesn't support vs2010 anymore.")]
         vs2010 = -1,
